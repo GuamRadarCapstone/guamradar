@@ -33,6 +33,7 @@ GuamRadar is a **map-first Guam tourism web app (PWA-style)** that helps users d
 - If you’re working on **UI** → mostly touch `frontend/src/**`
 - If you’re working on **API** → mostly touch `backend/src/**`
 - If you’re working on **planning/docs** → put it in `docs/`
+- If you’re working on **database** → it's in **supabase**
 
 ---
 
@@ -86,68 +87,9 @@ http://localhost:8080/api/health
 
 ---
 
-## Frontend ↔ Backend connection
-
-### Option A (recommended for most teammates): use the deployed backend while you build UI
-
-Create `frontend/.env.local` (this file is **NOT** committed):
-
-```env
-VITE_API_BASE_URL=https://<your-railway-domain>
-```
-
-Restart:
-
-```bash
-npm run dev
-```
-
----
-
-### Option B: use local backend while you build UI
-
-Create `frontend/.env.local`:
-
-```env
-VITE_API_BASE_URL=http://localhost:8080
-```
-
-Restart:
-
-```bash
-npm run dev
-```
-
----
-
 ## Database (Supabase)
 
-The backend connects to Supabase using environment variables.
-
-- **Do not commit passwords or secrets into the repo.**
-
-### Running backend locally with the Supabase database
-
-Ask the project lead for the DB password (**do NOT share it in chat/screenshots/repos**).
-
-Then in your terminal:
-
-```bash
-export SPRING_DATASOURCE_URL='jdbc:postgresql://<pooler-host>:5432/postgres?sslmode=require'
-export SPRING_DATASOURCE_USERNAME='<pooler-username>'
-export SPRING_DATASOURCE_PASSWORD='<db-password>'
-
-cd backend
-./mvnw spring-boot:run
-```
-
-If the DB connection works, this endpoint should return `{ "ok": true, "db": 1 }`:
-
-```text
-http://localhost:8080/api/db-ping
-```
-
-*(if enabled in the backend)*
+**TO-DO**
 
 ---
 
@@ -157,14 +99,12 @@ http://localhost:8080/api/db-ping
 - **Railway** deploys the backend from `backend/`
 - Deployments happen when changes are merged into `main`
 
-Most teammates only need **GitHub access + local setup**.  
-You do **not** need Vercel/Railway/Supabase accounts unless you’re managing deployments/DB settings.
+You only need **GitHub access + local setup**.  
+You do **not** need Vercel/Railway/Supabase (supabase for database probably will need access) accounts unless you’re managing deployments/DB settings.
 
 ---
 
-## GitHub basics for this repo (the only workflow you need)
-
-### The 5-step loop (do this every time)
+## GitHub workflow 
 
 **Update main:**
 
@@ -214,22 +154,10 @@ git push -u origin feat/short-description
 
 ---
 
-## Team “rules” (so we don’t break each other’s work)
+## Some “rules” 
 
 - Don’t commit secrets (`.env`, passwords, keys)
 - Don’t commit build folders:
   - `frontend/node_modules/`
   - `backend/target/`
 - Keep PRs small (easier to review + merge)
-
----
-
-## What to work on first (recommended milestone)
-
-### Milestone 1: “Show real POIs on the map from the database.”
-
-- **DB:** `pois` table + seed a few rows
-- **Backend:** `GET /api/pois`
-- **Frontend:** fetch `/api/pois` and render list + markers
-
----
