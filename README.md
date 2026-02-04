@@ -60,6 +60,17 @@ cd guamradar
 
 ### 2) Run the frontend (easy, works even if you don’t run the backend)
 
+Windows (PowerShell)
+It's easier to install things with chocolate so install Chocolatey for Windows PowerShell/Termninal: https://chocolatey.org/install
+
+Scroll down to "Install Chocolatey for Individual Use:" and simply do 1-5
+
+WIP
+
+```bash
+
+```
+
 ```bash
 cd frontend
 npm install
