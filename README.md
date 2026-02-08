@@ -83,6 +83,28 @@ Frontend runs at the URL Vite prints (usually http://localhost:5173).
 
 ### 3) Run the backend (local)
 
+Windows (PowerShell)
+Install Java JDK 21 via Chocolatey:
+
+```bash
+choco install temurin21
+```
+
+Verify the installation:
+
+```bash
+java --version
+```
+
+Then run the backend:
+
+```bash
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+macOS / Linux
+
 ```bash
 cd backend
 ./mvnw spring-boot:run
