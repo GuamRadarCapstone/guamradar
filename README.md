@@ -49,27 +49,27 @@ GuamRadar is a **map-first Guam tourism web app (PWA-style)** that helps users d
 
 ---
 
-### 1) Clone the repo
-
-```bash
-git clone <repo-ssh-or-https-url>
-cd guamradar
-```
-
----
-
-### 2) Run the frontend (easy, works even if you don’t run the backend)
+2) Run the frontend (easy, works even if you don't run the backend)
 
 Windows (PowerShell)
-It's easier to install things with chocolate so install Chocolatey for Windows PowerShell/Termninal: https://chocolatey.org/install
+It's easier to install things with Chocolatey so install Chocolatey for Windows PowerShell/Terminal:
+https://chocolatey.org/install
+Scroll down to "Install Chocolatey for Individual Use:" and simply do steps 1-5
 
-Scroll down to "Install Chocolatey for Individual Use:" and simply do 1-5
-
-WIP
+Then install Node.js via Chocolatey:
 
 ```bash
-
+choco install nodejs
 ```
+
+Verify the installation:
+
+```bash
+node --version
+npm --version
+```
+
+Then run the frontend:
 
 ```bash
 cd frontend
@@ -77,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at the URL Vite prints (usually `http://localhost:5173`).
+Frontend runs at the URL Vite prints (usually http://localhost:5173).
 
 ---
 
