@@ -272,7 +272,7 @@ export function HomePage() {
 
   // Load villages from public/data/guam_villages.geojson
   useEffect(() => {
-    fetch("/data/guam_villages.geojson")
+      fetch(`${import.meta.env.BASE_URL}data/guam_villages.geojson`)
       .then((r) => r.json())
       .then((geo) => setVillages(geoJsonToVillages(geo)))
       .catch((e) => {
