@@ -10,7 +10,153 @@ import {
   useMap,
 } from "react-leaflet";
 import styles from "./HomePage.module.css";
-import { EVENTS, LIVE, PLACES, VILLAGES, type EventItem, type Place } from "./demoData";
+import { EVENTS, LIVE, PLACES, type EventItem, type Place } from "./demoData";
+
+/* ===================== VILLAGES (GeoJSON -> Leaflet) ===================== */
+type Village = { id: string; name: string; polygon: [number, number][] };
+
+function normalizeVillageId(name: string) {
+  return name
+    .replace(/\bMunicipality\b/gi, "")
+    .replace(/[’']/g, "")
+    .replace(/[åÅ]/g, "a")
+    .replace(/[áàâä]/g, "a")
+    .replace(/[éèêë]/g, "e")
+    .replace(/[íìîï]/g, "i")
+    .replace(/[óòôö]/g, "o")
+    .replace(/[úùûü]/g, "u")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+}
+
+function toRingLatLng(coords: any[]): [number, number][] {
+  // coords are [lng,lat] -> [lat,lng]
+  return coords.map(([lng, lat]: [number, number]) => [lat, lng]);
+}
+
+// --- NEW: bbox helpers to avoid off-island fragments hijacking village polygons ---
+function ringBBox(ring: [number, number][]) {
+  let minLat = Infinity,
+    minLng = Infinity,
+    maxLat = -Infinity,
+    maxLng = -Infinity;
+  for (const [lat, lng] of ring) {
+    if (lat < minLat) minLat = lat;
+    if (lng < minLng) minLng = lng;
+    if (lat > maxLat) maxLat = lat;
+    if (lng > maxLng) maxLng = lng;
+  }
+  return { minLat, minLng, maxLat, maxLng };
+}
+
+function bboxIntersectionArea(a: any, b: any) {
+  const x1 = Math.max(a.minLng, b.minLng);
+  const y1 = Math.max(a.minLat, b.minLat);
+  const x2 = Math.min(a.maxLng, b.maxLng);
+  const y2 = Math.min(a.maxLat, b.maxLat);
+  const w = x2 - x1;
+  const h = y2 - y1;
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+function bboxArea(bb: any) {
+  const w = bb.maxLng - bb.minLng;
+  const h = bb.maxLat - bb.minLat;
+  return Math.max(0, w) * Math.max(0, h);
+}
+
+function geoJsonToVillages(geo: any): Village[] {
+  const features = geo?.features ?? [];
+
+  // Main island “window” for Guam to avoid selecting far-off fragments/islets
+  const GUAM_MAIN_BB = {
+    minLat: 13.2,
+    maxLat: 13.75,
+    minLng: 144.6,
+    maxLng: 144.98,
+  };
+
+  return features
+    .map((f: any) => {
+      const rawName = f?.properties?.name;
+      const geom = f?.geometry;
+      if (!rawName || !geom) return null;
+
+      // Remove non-village polygons
+      if (rawName === "Guam" || rawName === "United States") return null;
+
+      const id = normalizeVillageId(rawName);
+      const cleanName = rawName.replace(/\bMunicipality\b/gi, "").trim();
+
+      const candidateRings: [number, number][][] = [];
+
+      if (geom.type === "Polygon") {
+        const outer = geom.coordinates?.[0];
+        if (outer?.length) candidateRings.push(toRingLatLng(outer));
+      } else if (geom.type === "MultiPolygon") {
+        for (const poly of geom.coordinates ?? []) {
+          const outer = poly?.[0];
+          if (outer?.length) candidateRings.push(toRingLatLng(outer));
+        }
+      } else {
+        return null;
+      }
+
+      if (!candidateRings.length) return null;
+
+      // Pick the ring that overlaps Guam main bbox the most.
+      // IMPORTANT: use absolute overlap area (not overlap/area) so tiny fragments/islets
+      // don't win just because they're fully inside the bounding box.
+      let best = candidateRings[0];
+      let bestOverlap = -1;
+      let bestArea = -1;
+
+      for (const ring of candidateRings) {
+        const bb = ringBBox(ring);
+        const overlap = bboxIntersectionArea(bb, GUAM_MAIN_BB);
+        const area = bboxArea(bb);
+        if (overlap > bestOverlap || (overlap === bestOverlap && area > bestArea)) {
+          bestOverlap = overlap;
+          bestArea = area;
+          best = ring;
+        }
+      }
+
+      return { id, name: cleanName, polygon: best };
+    })
+    .filter(Boolean);
+}
+
+// Ray-casting point-in-polygon for a single outer ring.
+// ring is [[lat,lng], ...]
+function pointInRing(lat: number, lng: number, ring: [number, number][]) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const yi = ring[i][0];
+    const xi = ring[i][1];
+    const yj = ring[j][0];
+    const xj = ring[j][1];
+
+    const intersect = yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function findVillageForPoint(
+  villages: Village[],
+  lat: number,
+  lng: number
+): Village | null {
+  // First pass: strict contains
+  for (const v of villages) {
+    if (pointInRing(lat, lng, v.polygon)) return v;
+  }
+  return null;
+}
+
+/* ===================== TYPES ===================== */
 
 type Category = "ALL" | "ATTRACTION" | "RESTAURANT" | "HOTEL";
 type Selected =
@@ -18,8 +164,12 @@ type Selected =
   | { kind: "EVENT"; id: string }
   | null;
 
+/* ===================== CONSTANTS ===================== */
+
 const DEFAULT_CENTER: [number, number] = [13.45, 144.78];
 const DEFAULT_ZOOM = 11;
+
+/* ===================== HELPERS ===================== */
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -69,10 +219,14 @@ function eventIcon(status: EventItem["status"]) {
     : emojiIcon("🕓", "rgba(245,158,11,0.45)", "rgba(245,158,11,0.12)");
 }
 
+/* ===================== MAP CONTROLLER ===================== */
+
 function MapController({
+  villages,
   selectedVillageId,
   focus,
 }: {
+  villages: Village[];
   selectedVillageId: string | null;
   focus: { lat: number; lng: number } | null;
 }) {
@@ -80,11 +234,12 @@ function MapController({
 
   useEffect(() => {
     if (!selectedVillageId) return;
-    const v = VILLAGES.find((x) => x.id === selectedVillageId);
+    const v = villages.find((x) => x.id === selectedVillageId);
     if (!v) return;
     const bounds = L.latLngBounds(v.polygon as any);
-    map.fitBounds(bounds, { padding: [30, 30] });
-  }, [map, selectedVillageId]);
+    // NEW: maxZoom prevents weird “zoom into tiny fragment”
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+  }, [map, selectedVillageId, villages]);
 
   useEffect(() => {
     if (!focus) return;
@@ -94,7 +249,10 @@ function MapController({
   return null;
 }
 
+/* ===================== PAGE ===================== */
+
 export function HomePage() {
+  const [villages, setVillages] = useState<Village[]>([]);
   const [selectedVillageId, setSelectedVillageId] = useState<string | null>(null);
   const [category, setCategory] = useState<Category>("ALL");
   const [search, setSearch] = useState("");
@@ -106,10 +264,31 @@ export function HomePage() {
   const [showLive, setShowLive] = useState(false);
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [userAcc, setUserAcc] = useState<number | null>(null); // meters
   const [selected, setSelected] = useState<Selected>(null);
 
   // Optional: show API health on the top bar (works once you set VITE_API_BASE_URL)
   const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
+
+  // Load villages from public/data/guam_villages.geojson
+  useEffect(() => {
+    fetch("/data/guam_villages.geojson")
+      .then((r) => r.json())
+      .then((geo) => setVillages(geoJsonToVillages(geo)))
+      .catch((e) => {
+        console.error("Failed to load villages geojson:", e);
+        setVillages([]);
+      });
+  }, []);
+
+  // Debug: shows what loaded
+  useEffect(() => {
+    console.log(
+      "Loaded villages:",
+      villages.map((v) => v.name).sort()
+    );
+  }, [villages]);
+
   useEffect(() => {
     const base = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
     if (!base) {
@@ -123,8 +302,8 @@ export function HomePage() {
 
   const selectedVillageName = useMemo(() => {
     if (!selectedVillageId) return "All Guam";
-    return VILLAGES.find((v) => v.id === selectedVillageId)?.name ?? "All Guam";
-  }, [selectedVillageId]);
+    return villages.find((v) => v.id === selectedVillageId)?.name ?? "All Guam";
+  }, [selectedVillageId, villages]);
 
   const villagePlaces = useMemo(() => {
     if (!selectedVillageId) return [];
@@ -209,13 +388,32 @@ export function HomePage() {
 
   function locateMe() {
     if (!navigator.geolocation) return alert("Geolocation not supported.");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      () => alert("Could not access location."),
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    const onPos = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = typeof pos.coords.accuracy === "number" ? pos.coords.accuracy : null;
+
+      setUserLoc({ lat, lng });
+      setUserAcc(acc);
+
+      // Auto-detect your village from the polygon the point falls in.
+      // If the browser's location is very imprecise (desktop/IP-based), don't force a village.
+      if (villages.length) {
+        if (acc === null || acc <= 1500) {
+          const v = findVillageForPoint(villages, lat, lng);
+          if (v) {
+            setSelectedVillageId(v.id);
+            setSelected(null);
+          }
+        }
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(onPos, () => alert("Could not access location."), {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 15000,
+    });
   }
 
   const selectedDetail = useMemo(() => {
@@ -253,13 +451,22 @@ export function HomePage() {
         {/* MAP */}
         <div className={styles.mapCard}>
           <div className={styles.mapHud}>
-            <button className={`${styles.hudBtn} ${showPOI ? styles.active : ""}`} onClick={() => setShowPOI((s) => !s)}>
+            <button
+              className={`${styles.hudBtn} ${showPOI ? styles.active : ""}`}
+              onClick={() => setShowPOI((s) => !s)}
+            >
               POIs
             </button>
-            <button className={`${styles.hudBtn} ${showEvents ? styles.active : ""}`} onClick={() => setShowEvents((s) => !s)}>
+            <button
+              className={`${styles.hudBtn} ${showEvents ? styles.active : ""}`}
+              onClick={() => setShowEvents((s) => !s)}
+            >
               Events
             </button>
-            <button className={`${styles.hudBtn} ${showLive ? styles.active : ""}`} onClick={() => setShowLive((s) => !s)}>
+            <button
+              className={`${styles.hudBtn} ${showLive ? styles.active : ""}`}
+              onClick={() => setShowLive((s) => !s)}
+            >
               Live
             </button>
             <button className={styles.hudBtn} onClick={locateMe}>
@@ -273,9 +480,9 @@ export function HomePage() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <MapController selectedVillageId={selectedVillageId} focus={focus} />
+            <MapController villages={villages} selectedVillageId={selectedVillageId} focus={focus} />
 
-            {VILLAGES.map((v) => (
+            {villages.map((v) => (
               <Polygon
                 key={v.id}
                 positions={v.polygon}
@@ -308,7 +515,8 @@ export function HomePage() {
             {userLoc && (
               <Circle
                 center={[userLoc.lat, userLoc.lng]}
-                radius={80}
+                // Show GPS accuracy if available (clamped so it doesn't take over the map)
+                radius={userAcc ? Math.max(80, Math.min(userAcc, 600)) : 80}
                 pathOptions={{
                   color: "rgba(34,197,94,0.9)",
                   fillColor: "rgba(34,197,94,0.25)",
@@ -318,6 +526,10 @@ export function HomePage() {
               >
                 <Popup>
                   <b>You are here</b>
+                  <div className={styles.muted}>
+                    {userLoc.lat.toFixed(5)}, {userLoc.lng.toFixed(5)}
+                    {typeof userAcc === "number" ? ` • ±${Math.round(userAcc)}m` : ""}
+                  </div>
                 </Popup>
               </Circle>
             )}
@@ -404,7 +616,13 @@ export function HomePage() {
                       className={`${styles.chip} ${category === c ? styles.chipActive : ""}`}
                       onClick={() => setCategory(c)}
                     >
-                      {c === "ALL" ? "All" : c === "ATTRACTION" ? "Attractions" : c === "RESTAURANT" ? "Restaurants" : "Hotels"}
+                      {c === "ALL"
+                        ? "All"
+                        : c === "ATTRACTION"
+                        ? "Attractions"
+                        : c === "RESTAURANT"
+                        ? "Restaurants"
+                        : "Hotels"}
                     </button>
                   ))}
                 </div>
@@ -418,10 +636,20 @@ export function HomePage() {
 
                 <div className={styles.rowBetween}>
                   <label className={styles.checkbox}>
-                    <input type="checkbox" checked={openNow} onChange={(e) => setOpenNow(e.target.checked)} /> Open now
+                    <input
+                      type="checkbox"
+                      checked={openNow}
+                      onChange={(e) => setOpenNow(e.target.checked)}
+                    />{" "}
+                    Open now
                   </label>
                   <label className={styles.checkbox}>
-                    <input type="checkbox" checked={nearMe} onChange={(e) => setNearMe(e.target.checked)} /> Near me
+                    <input
+                      type="checkbox"
+                      checked={nearMe}
+                      onChange={(e) => setNearMe(e.target.checked)}
+                    />{" "}
+                    Near me
                   </label>
                   <button className={styles.btn} onClick={reset}>
                     Reset
@@ -449,10 +677,13 @@ export function HomePage() {
                     const meta =
                       r.kind === "PLACE"
                         ? `${r.data.type} • ${r.data.source}`
-                        : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${r.data.source}`;
+                        : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${
+                            r.data.source
+                          }`;
 
-                    const dist =
-                      userLoc ? haversineKm(userLoc.lat, userLoc.lng, r.data.lat, r.data.lng) : null;
+                    const dist = userLoc
+                      ? haversineKm(userLoc.lat, userLoc.lng, r.data.lat, r.data.lng)
+                      : null;
 
                     return (
                       <button
@@ -462,14 +693,26 @@ export function HomePage() {
                       >
                         <div className={styles.itemTop}>
                           <div className={styles.itemTitle}>{title}</div>
-                          <div className={r.kind === "EVENT" ? (r.data.status === "VERIFIED" ? styles.badgeGood : styles.badgeWarn) : styles.badge}>
+                          <div
+                            className={
+                              r.kind === "EVENT"
+                                ? r.data.status === "VERIFIED"
+                                  ? styles.badgeGood
+                                  : styles.badgeWarn
+                                : styles.badge
+                            }
+                          >
                             {r.kind === "PLACE" ? r.data.type : r.data.status}
                           </div>
                         </div>
                         <div className={styles.itemDesc}>{meta}</div>
                         <div className={styles.itemMeta}>
                           {dist != null && <span>📍 {dist.toFixed(1)} km</span>}
-                          {r.kind === "PLACE" ? <span>⏰ {r.data.hours}</span> : <span>🗓️ {r.data.when ?? ""}</span>}
+                          {r.kind === "PLACE" ? (
+                            <span>⏰ {r.data.hours}</span>
+                          ) : (
+                            <span>🗓️ {r.data.when ?? ""}</span>
+                          )}
                         </div>
                       </button>
                     );
@@ -549,7 +792,7 @@ export function HomePage() {
                 onChange={(e) => setSelectedVillageId(e.target.value || null)}
               >
                 <option value="">Select village</option>
-                {VILLAGES.map((v) => (
+                {villages.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
