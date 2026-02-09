@@ -12,14 +12,11 @@ import {
 import styles from "./HomePage.module.css";
 import {
   EVENTS,
-  LIVE,
   PLACES,
   VILLAGES,
-  type EventItem,
   type Place,
 } from "./demoData";
 
-type Category = "ALL" | "ATTRACTION" | "RESTAURANT" | "HOTEL";
 type Selected =
   | { kind: "PLACE"; id: string }
   | { kind: "EVENT"; id: string }
@@ -27,18 +24,6 @@ type Selected =
 
 const DEFAULT_CENTER: [number, number] = [13.45, 144.78];
 const DEFAULT_ZOOM = 11;
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 function emojiIcon(emoji: string) {
   return L.divIcon({
