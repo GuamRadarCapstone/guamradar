@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import {
   Circle,
@@ -125,7 +125,7 @@ function geoJsonToVillages(geo: any): Village[] {
 
       return { id, name: cleanName, polygon: best };
     })
-    .filter(Boolean);
+    .filter(Boolean) as Village[];
 }
 
 // Ray-casting point-in-polygon for a single outer ring.
@@ -138,17 +138,14 @@ function pointInRing(lat: number, lng: number, ring: [number, number][]) {
     const yj = ring[j][0];
     const xj = ring[j][1];
 
-    const intersect = yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    const intersect =
+      yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
 }
 
-function findVillageForPoint(
-  villages: Village[],
-  lat: number,
-  lng: number
-): Village | null {
+function findVillageForPoint(villages: Village[], lat: number, lng: number): Village | null {
   // First pass: strict contains
   for (const v of villages) {
     if (pointInRing(lat, lng, v.polygon)) return v;
@@ -159,15 +156,16 @@ function findVillageForPoint(
 /* ===================== TYPES ===================== */
 
 type Category = "ALL" | "ATTRACTION" | "RESTAURANT" | "HOTEL";
-type Selected =
-  | { kind: "PLACE"; id: string }
-  | { kind: "EVENT"; id: string }
-  | null;
+type Selected = { kind: "PLACE"; id: string } | { kind: "EVENT"; id: string } | null;
 
 /* ===================== CONSTANTS ===================== */
 
 const DEFAULT_CENTER: [number, number] = [13.45, 144.78];
 const DEFAULT_ZOOM = 11;
+
+/* ===================== MUSIC (background) ===================== */
+// Put your file here: frontend/public/bgm.mp3
+const MUSIC_FILE = "Freddy.mp3";
 
 /* ===================== HELPERS ===================== */
 
@@ -208,8 +206,10 @@ function emojiIcon(emoji: string, border: string, bg: string) {
 }
 
 function placeIcon(type: Place["type"]) {
-  if (type === "RESTAURANT") return emojiIcon("🍴", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
-  if (type === "HOTEL") return emojiIcon("🏨", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
+  if (type === "RESTAURANT")
+    return emojiIcon("🍴", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
+  if (type === "HOTEL")
+    return emojiIcon("🏨", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
   return emojiIcon("📍", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
 }
 
@@ -270,9 +270,42 @@ export function HomePage() {
   // Optional: show API health on the top bar (works once you set VITE_API_BASE_URL)
   const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
 
+  /* ===================== MUSIC STATE ===================== */
+  const [musicOn, setMusicOn] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const a = new Audio(`${import.meta.env.BASE_URL}${MUSIC_FILE}`);
+    a.loop = true;
+    a.volume = 0.25;
+    audioRef.current = a;
+
+    return () => {
+      a.pause();
+      a.src = "";
+    };
+  }, []);
+
+  const toggleMusic = async () => {
+    const a = audioRef.current;
+    if (!a) return;
+
+    if (musicOn) {
+      a.pause();
+      setMusicOn(false);
+    } else {
+      try {
+        await a.play(); // requires a user click
+        setMusicOn(true);
+      } catch {
+        // autoplay blocked until user interacts
+      }
+    }
+  };
+
   // Load villages from public/data/guam_villages.geojson
   useEffect(() => {
-      fetch(`${import.meta.env.BASE_URL}data/guam_villages.geojson`)
+    fetch(`${import.meta.env.BASE_URL}data/guam_villages.geojson`)
       .then((r) => r.json())
       .then((geo) => setVillages(geoJsonToVillages(geo)))
       .catch((e) => {
@@ -344,10 +377,7 @@ export function HomePage() {
   }, [selectedVillageId, category, searchLower, nearMe, userLoc]);
 
   const results = useMemo(() => {
-    const combined: Array<
-      | { kind: "PLACE"; data: Place }
-      | { kind: "EVENT"; data: EventItem }
-    > = [
+    const combined: Array<{ kind: "PLACE"; data: Place } | { kind: "EVENT"; data: EventItem }> = [
       ...filteredPlaces.map((p) => ({ kind: "PLACE" as const, data: p })),
       ...filteredEvents.map((e) => ({ kind: "EVENT" as const, data: e })),
     ];
@@ -437,12 +467,20 @@ export function HomePage() {
         </div>
 
         <div className={styles.topRight}>
+          {/* NEW: MUSIC TOGGLE */}
+          <button
+            className={styles.pill}
+            onClick={toggleMusic}
+            style={{ cursor: "pointer" }}
+            title="Toggle background music"
+          >
+            {musicOn ? "🔊 Music: ON" : "🔇 Music: OFF"}
+          </button>
+
           <span className={styles.pill}>Map-first ➜ click pins ➜ see details</span>
           <span className={styles.pill}>
             API:{" "}
-            <b>
-              {apiStatus === "checking" ? "checking" : apiStatus === "up" ? "up" : "not set/down"}
-            </b>
+            <b>{apiStatus === "checking" ? "checking" : apiStatus === "up" ? "up" : "not set/down"}</b>
           </span>
         </div>
       </div>
@@ -677,9 +715,9 @@ export function HomePage() {
                     const meta =
                       r.kind === "PLACE"
                         ? `${r.data.type} • ${r.data.source}`
-                        : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${
-                            r.data.source
-                          }`;
+                        : `${
+                            r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"
+                          } • ${r.data.source}`;
 
                     const dist = userLoc
                       ? haversineKm(userLoc.lat, userLoc.lng, r.data.lat, r.data.lng)
@@ -708,11 +746,7 @@ export function HomePage() {
                         <div className={styles.itemDesc}>{meta}</div>
                         <div className={styles.itemMeta}>
                           {dist != null && <span>📍 {dist.toFixed(1)} km</span>}
-                          {r.kind === "PLACE" ? (
-                            <span>⏰ {r.data.hours}</span>
-                          ) : (
-                            <span>🗓️ {r.data.when ?? ""}</span>
-                          )}
+                          {r.kind === "PLACE" ? <span>⏰ {r.data.hours}</span> : <span>🗓️ {r.data.when ?? ""}</span>}
                         </div>
                       </button>
                     );
@@ -855,4 +889,4 @@ export function HomePage() {
       </div>
     </div>
   );
-} //Yes sir
+} //Yes sir  this is my homepage.tsx. Just replace or update anything that needs to be changed but keep everythign else
