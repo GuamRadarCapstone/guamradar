@@ -37,7 +37,6 @@ function mockOpenNow(place: Place) {
   const h = (place.hours || "").toLowerCase();
   if (h.includes("24/7")) return true;
   if (h.includes("open daily")) return true;
-  // simple stable mock
   let x = 0;
   for (let i = 0; i < place.id.length; i++) x = (x * 31 + place.id.charCodeAt(i)) | 0;
   return (x & 1) === 0;
@@ -127,6 +126,15 @@ export function HomePage() {
     return VILLAGES.find((v) => v.id === selectedVillageId)?.name ?? "All Guam";
   }, [selectedVillageId]);
 
+  const villagePlaces = useMemo(() => {
+    if (!selectedVillageId) return [];
+    return PLACES.filter((p) => p.villageId === selectedVillageId);
+  }, [selectedVillageId]);
+
+  const restaurants = villagePlaces.filter((p) => p.type === "RESTAURANT");
+  const attractions = villagePlaces.filter((p) => p.type === "ATTRACTION");
+  const hotels = villagePlaces.filter((p) => p.type === "HOTEL");
+
   const searchLower = search.trim().toLowerCase();
 
   const filteredPlaces = useMemo(() => {
@@ -146,7 +154,7 @@ export function HomePage() {
   const filteredEvents = useMemo(() => {
     return EVENTS.filter((e) => {
       if (selectedVillageId && e.villageId !== selectedVillageId) return false;
-      if (category !== "ALL") return false; // keep Explore clean for now (same as prototype)
+      if (category !== "ALL") return false;
       if (searchLower && !JSON.stringify(e).toLowerCase().includes(searchLower)) return false;
       if (nearMe) {
         if (!userLoc) return false;
@@ -422,7 +430,7 @@ export function HomePage() {
 
                 {nearMe && !userLoc && (
                   <div className={styles.notice}>
-                    Turned on “Near me” — tap <b>Use my location</b> on the map.
+                    Turned on "Near me" — tap <b>Use my location</b> on the map.
                   </div>
                 )}
               </div>
@@ -528,9 +536,80 @@ export function HomePage() {
               </div>
             </div>
           </div>
+
+          {/* VILLAGE BROWSE */}
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div className={styles.bigTextSmall}>Browse by Village</div>
+            </div>
+            <div className={styles.cardBody}>
+              <select
+                className={styles.input}
+                value={selectedVillageId ?? ""}
+                onChange={(e) => setSelectedVillageId(e.target.value || null)}
+              >
+                <option value="">Select village</option>
+                {VILLAGES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+
+              {!selectedVillageId ? (
+                <div className={styles.muted}>Select a village to explore.</div>
+              ) : (
+                <>
+                  <h4>Restaurants</h4>
+                  {restaurants.length === 0 ? (
+                    <div className={styles.muted}>None in this village.</div>
+                  ) : (
+                    restaurants.map((p) => (
+                      <button
+                        key={p.id}
+                        className={styles.item}
+                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )}
+
+                  <h4>Attractions</h4>
+                  {attractions.length === 0 ? (
+                    <div className={styles.muted}>None in this village.</div>
+                  ) : (
+                    attractions.map((p) => (
+                      <button
+                        key={p.id}
+                        className={styles.item}
+                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )}
+
+                  <h4>Hotels</h4>
+                  {hotels.length === 0 ? (
+                    <div className={styles.muted}>None in this village.</div>
+                  ) : (
+                    hotels.map((p) => (
+                      <button
+                        key={p.id}
+                        className={styles.item}
+                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
