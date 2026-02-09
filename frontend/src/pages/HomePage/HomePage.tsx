@@ -53,7 +53,7 @@ function emojiIcon(emoji: string) {
     ">${emoji}</div>`,
   });
 }
-
+// Test
 function placeIcon(type: Place["type"]) {
   if (type === "RESTAURANT") return emojiIcon("🍴");
   if (type === "HOTEL") return emojiIcon("🏨");
@@ -218,7 +218,7 @@ export function HomePage() {
               onChange={(e) =>
                 setSelectedVillageId(e.target.value || null)
               }
-            >
+            > 
               <option value="">Select village</option>
               {VILLAGES.map((v) => (
                 <option key={v.id} value={v.id}>
