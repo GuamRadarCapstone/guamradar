@@ -31,43 +31,30 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Topbar ── */
-
-.topbar {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(12px);
-}
+/* ── Brand (in sidebar header) ── */
 
 .brand {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.01em;
   color: var(--text);
+  line-height: 1;
 }
 
-.brandDot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--pill);
-  background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(69, 217, 168, 0.15);
-}
-
-.topRight {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--text-secondary);
-  font-size: 12px;
+.badgeWip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  color: #f0a030;
+  background: rgba(240, 160, 48, 0.12);
+  border: 1px solid rgba(240, 160, 48, 0.3);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .pill {
@@ -102,11 +89,9 @@
 /* ── Main layout ── */
 
 .main {
-  height: calc(100vh - 52px);
+  height: 100vh;
   display: grid;
   grid-template-columns: 1fr 380px;
-  gap: 12px;
-  padding: 12px;
   box-sizing: border-box;
 }
 
@@ -116,125 +101,58 @@
   position: relative;
 }
 
-.mapCard {
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  overflow: hidden;
-  height: 100%;
-}
 
 .map {
   height: 100%;
   width: 100%;
 }
 
-/* Mapbox GL control theming — matches dark neutral UI
-   Double-class specificity to override mapbox-gl.css defaults */
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group) {
-  background: #141414 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 8px !important;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
-  backdrop-filter: blur(12px);
-}
 
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button) {
-  background-color: transparent !important;
-  color: #e8e8e8 !important;
-  width: 34px !important;
-  height: 34px !important;
-  border: none !important;
-  border-top: none !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  transition: background 0.15s ease;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button + button) {
-  border-top: none !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:first-child) {
-  border-radius: 8px 8px 0 0 !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:last-child) {
-  border-bottom: none !important;
-  border-radius: 0 0 8px 8px !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:only-child) {
-  border-radius: 8px !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover) {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:active) {
-  background-color: rgba(69, 217, 168, 0.15) !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:focus) {
-  box-shadow: none !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:focus:focus-visible) {
-  box-shadow: 0 0 0 2px rgba(69, 217, 168, 0.5) !important;
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button .mapboxgl-ctrl-icon) {
-  filter: invert(1) brightness(0.85);
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-icon) {
-  filter: invert(1) brightness(1);
-}
-
-/* Compass icon — teal tint */
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon) {
-  filter: invert(1) brightness(0.85) sepia(0.3) hue-rotate(120deg) saturate(1.5);
-}
-
-.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass:hover .mapboxgl-ctrl-icon) {
-  filter: invert(1) brightness(1) sepia(0.4) hue-rotate(120deg) saturate(2);
-}
-
-/* Ensure consistent spacing between Mapbox controls */
-.map :global(.mapboxgl-ctrl-top-left .mapboxgl-ctrl) {
-  margin: 10px 0 0 10px !important;
-}
-
-/* Center-on-Guam button — matches zoom control style */
-.centerBtn {
+/* Map controls — unified button stack */
+.mapControls {
   position: absolute;
-  top: 120px;
+  top: 10px;
   left: 10px;
   z-index: 2;
-  width: 34px;
-  height: 34px;
+  display: flex;
+  flex-direction: column;
   background: #141414;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+}
+
+.mapCtrlBtn {
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   transition: background 0.15s ease;
+  padding: 0;
 }
 
-.centerBtn:hover {
+.mapCtrlBtn:last-child {
+  border-bottom: none;
+}
+
+.mapCtrlBtn:hover {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.centerBtn:active {
+.mapCtrlBtn:active {
   background: rgba(69, 217, 168, 0.15);
 }
 
-.villageToggle {
-  top: 160px;
-  transition: background 0.15s ease, opacity 0.2s ease;
+.mapCtrlBtn:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .map :global(.mapboxgl-ctrl-attrib) {
@@ -242,11 +160,25 @@
   color: var(--muted) !important;
   font-size: 10px !important;
   backdrop-filter: blur(8px);
-  border-radius: var(--radius-sm) 0 0 0;
+  border-radius: var(--radius) !important;
 }
 
 .map :global(.mapboxgl-ctrl-attrib a) {
   color: var(--accent) !important;
+}
+
+/* Attribution toggle button (the "i" circle on mobile) */
+.map :global(.mapboxgl-ctrl-attrib-button) {
+  background-color: transparent !important;
+  filter: invert(1);
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.map :global(.mapboxgl-ctrl-attrib-button:focus) {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Mapbox popup theming */
@@ -323,9 +255,19 @@
   gap: 12px;
   min-width: 340px;
   max-width: 420px;
+  padding: 12px;
   overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -650,14 +592,16 @@
 .checkbox input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
-  position: relative;
   flex-shrink: 0;
+  position: relative;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -669,13 +613,10 @@
 .checkbox input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  left: 50%;
-  top: 45%;
-  width: 5px;
-  height: 9px;
-  border: solid var(--accent);
-  border-width: 0 2px 2px 0;
-  transform: translate(-50%, -50%) rotate(45deg);
+  inset: 0;
+  background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center/10px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center/10px no-repeat;
 }
 
 /* ── Layout helpers ── */
@@ -883,35 +824,38 @@
     grid-template-columns: 1fr;
   }
   .mapWrap {
-    height: 60vh;
+    height: 75vh;
     min-height: 320px;
   }
   .sidebar {
     min-width: auto;
     max-width: none;
     overflow-y: visible;
+    border-left: none;
+    border-top: 1px solid var(--border);
   }
-  .topbar {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 8px 14px;
-    gap: 6px;
-  }
-  .topRight {
-    flex-wrap: wrap;
-  }
+
+  /* HUD pills — top-left, wrapping allowed */
   .mapHud {
     left: 10px;
     top: 10px;
+    right: 50px;
+    flex-wrap: wrap;
   }
   .hudPill {
     padding: 5px 10px;
     font-size: 11px;
   }
-  .map :global(.mapboxgl-ctrl-top-left) {
-    top: auto !important;
-    left: auto !important;
-    bottom: 10px !important;
-    right: 10px !important;
+
+  /* Map controls — move to top-right on mobile */
+  .mapControls {
+    left: auto;
+    right: 10px;
+  }
+
+  /* Attribution — compact and out of the way */
+  .map :global(.mapboxgl-ctrl-attrib) {
+    font-size: 9px !important;
+    max-width: 200px;
   }
 }

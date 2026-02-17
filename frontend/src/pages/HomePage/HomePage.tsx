@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, {
   Layer,
   Marker,
-  NavigationControl,
   Popup,
   Source,
 } from "react-map-gl/mapbox";
@@ -162,7 +161,11 @@ type Selected = { kind: "PLACE"; id: string } | { kind: "EVENT"; id: string } | 
 /* ===================== CONSTANTS ===================== */
 
 const DEFAULT_CENTER: { lng: number; lat: number } = { lng: 144.78, lat: 13.45 };
-const DEFAULT_ZOOM = 10.8;
+const GUAM_BOUNDS: [[number, number], [number, number]] = [
+  [144.62, 13.23], // southwest [lng, lat]
+  [144.96, 13.65], // northeast [lng, lat]
+];
+const GUAM_BOUNDS_PADDING = 20;
 
 /* ===================== MUSIC (background) ===================== */
 const MUSIC_FILE = "Freddy.mp3";
@@ -288,7 +291,6 @@ export function HomePage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef>(null);
 
-  const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
 
   /* ===================== MUSIC STATE ===================== */
   const [musicOn, setMusicOn] = useState(false);
@@ -347,16 +349,6 @@ export function HomePage() {
       });
   }, []);
 
-  useEffect(() => {
-    const base = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
-    if (!base) {
-      setApiStatus("down");
-      return;
-    }
-    fetch(`${base}/api/health`)
-      .then((r) => (r.ok ? setApiStatus("up") : setApiStatus("down")))
-      .catch(() => setApiStatus("down"));
-  }, []);
 
   /* ===================== FIT BOUNDS ON VILLAGE SELECT ===================== */
   useEffect(() => {
@@ -728,31 +720,6 @@ export function HomePage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topbar}>
-        <div className={styles.brand}>
-          <span className={styles.brandDot} />
-          <div>
-            GuamRadar <span className={styles.muted}>WIP</span>
-          </div>
-        </div>
-
-        <div className={styles.topRight}>
-          <button
-            className={`${styles.pill} ${musicOn ? styles.pillActive : ""}`}
-            onClick={toggleMusic}
-            title="Toggle background music"
-          >
-            {musicOn ? "🔊 Music: ON" : "🔇 Music: OFF"}
-          </button>
-
-          <span className={styles.pill}>Map-first ➜ click pins ➜ see details</span>
-          <span className={styles.pill}>
-            API:{" "}
-            <b>{apiStatus === "checking" ? "checking" : apiStatus === "up" ? "up" : "not set/down"}</b>
-          </span>
-        </div>
-      </div>
-
       <div className={styles.main}>
         {/* MAP */}
         <div className={styles.mapWrap}>
@@ -780,7 +747,6 @@ export function HomePage() {
             </button>
           </div>
 
-          <div className={styles.mapCard}>
           <div className={styles.map} style={{ width: "100%", height: "100%" }}>
           <Map
             ref={mapRef}
@@ -788,7 +754,9 @@ export function HomePage() {
             initialViewState={{
               longitude: DEFAULT_CENTER.lng,
               latitude: DEFAULT_CENTER.lat,
-              zoom: DEFAULT_ZOOM,
+              zoom: 10,
+              pitch: 0,
+              bearing: 0,
             }}
             mapStyle="mapbox://styles/mapbox/standard"
             style={{
@@ -811,35 +779,44 @@ export function HomePage() {
               } catch (err) {
                 console.warn("Map config error:", err);
               }
+              map.fitBounds(GUAM_BOUNDS, { padding: GUAM_BOUNDS_PADDING, duration: 0 });
               // Wait until map has fully repainted with night mode before showing
               map.once("idle", () => setMapReady(true));
             }}
           >
-            <NavigationControl position="top-left" showCompass />
-
-            {/* Center on Guam button — styled like zoom controls */}
-            <div className={styles.centerBtn} title="Center on Guam" onClick={() => {
-              mapRef.current?.flyTo({
-                center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
-                zoom: DEFAULT_ZOOM,
-                duration: 1000,
-              });
-            }}>
-              <img src="/guam.png" alt="Guam" width="20" height="20" style={{ objectFit: "contain" }} />
-            </div>
-
-            {/* Toggle village highlights */}
-            <div
-              className={`${styles.centerBtn} ${styles.villageToggle}`}
-              title={showVillages ? "Hide village borders" : "Show village borders"}
-              onClick={() => setShowVillages((v) => !v)}
-              style={{ opacity: showVillages ? 1 : 0.5 }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(69,217,168,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2" />
-                <line x1="8" y1="2" x2="8" y2="18" />
-                <line x1="16" y1="6" x2="16" y2="22" />
-              </svg>
+            {/* Map controls — single container */}
+            <div className={styles.mapControls}>
+              <button className={styles.mapCtrlBtn} title="Zoom in" onClick={() => mapRef.current?.getMap().zoomIn()}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <button className={styles.mapCtrlBtn} title="Zoom out" onClick={() => mapRef.current?.getMap().zoomOut()}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <button className={styles.mapCtrlBtn} title="Reset north" onClick={() => mapRef.current?.getMap().resetNorth()}>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="rgba(69,217,168,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12,2 20,22 12,17 4,22"/></svg>
+              </button>
+              <button className={styles.mapCtrlBtn} title="Center on Guam" onClick={() => {
+                const map = mapRef.current?.getMap();
+                if (map) {
+                  map.setPitch(0);
+                  map.setBearing(0);
+                  map.fitBounds(GUAM_BOUNDS, { padding: GUAM_BOUNDS_PADDING, duration: 1000 });
+                }
+              }}>
+                <img src="/guam.png" alt="Guam" width="20" height="20" style={{ objectFit: "contain" }} />
+              </button>
+              <button
+                className={styles.mapCtrlBtn}
+                title={showVillages ? "Hide village borders" : "Show village borders"}
+                onClick={() => setShowVillages((v) => !v)}
+                style={{ opacity: showVillages ? 1 : 0.5 }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(69,217,168,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2" />
+                  <line x1="8" y1="2" x2="8" y2="18" />
+                  <line x1="16" y1="6" x2="16" y2="22" />
+                </svg>
+              </button>
             </div>
 
             {/* Village polygons + labels managed imperatively via useEffect above */}
@@ -1068,11 +1045,23 @@ export function HomePage() {
             )}
           </Map>
           </div>
-          </div>
         </div>
 
         {/* SIDEBAR */}
         <div className={styles.sidebar}>
+          <div className={styles.sidebarHeader}>
+            <div className={styles.brand}>
+              GuamRadar <span className={styles.badgeWip}>WIP</span>
+            </div>
+            <button
+              className={`${styles.pill} ${musicOn ? styles.pillActive : ""}`}
+              onClick={toggleMusic}
+              title="Toggle background music"
+            >
+              {musicOn ? "🔊 Music: ON" : "🔇 Music: OFF"}
+            </button>
+          </div>
+
           <div className={styles.card}>
             <div className={styles.cardHeader}>
               <div>
@@ -1290,16 +1279,17 @@ export function HomePage() {
                         onClick={() => {
                           setSelectedVillageId(null);
                           setDropdownOpen(false);
-                          mapRef.current?.flyTo({
-                            center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
-                            zoom: DEFAULT_ZOOM,
-                            duration: 1000,
-                          });
+                          const map = mapRef.current?.getMap();
+                          if (map) {
+                            map.setPitch(0);
+                            map.setBearing(0);
+                            map.fitBounds(GUAM_BOUNDS, { padding: GUAM_BOUNDS_PADDING, duration: 1000 });
+                          }
                         }}
                       >
                         All villages
                       </button>
-                      {villages.map((v) => (
+                      {[...villages].sort((a, b) => a.name.localeCompare(b.name)).map((v) => (
                         <button
                           key={v.id}
                           className={`${styles.dropdownItem} ${selectedVillageId === v.id ? styles.dropdownItemActive : ""}`}
