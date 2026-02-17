@@ -266,6 +266,9 @@ export function HomePage() {
   const [userAcc, setUserAcc] = useState<number | null>(null); // meters
   const [selected, setSelected] = useState<Selected>(null);
 
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [villageOpen, setVillageOpen] = useState(true);
+
   // Optional: show API health on the top bar (works once you set VITE_API_BASE_URL)
   const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
 
@@ -749,132 +752,139 @@ export function HomePage() {
 
           {/* DETAILS */}
           <div className={styles.card}>
-            <div className={styles.cardHeader}>
+            <div className={styles.cardHeader} onClick={() => setDetailsOpen((o) => !o)}>
               <div className={styles.bigTextSmall}>Details</div>
-              <div className={styles.badge}>
-                {selectedDetail?.kind === "PLACE"
-                  ? selectedDetail.p.type
-                  : selectedDetail?.kind === "EVENT"
-                  ? selectedDetail.e.status
-                  : "—"}
+              <div className={styles.row}>
+                {selectedDetail && (
+                  <div className={styles.badge}>
+                    {selectedDetail.kind === "PLACE"
+                      ? selectedDetail.p.type
+                      : selectedDetail.e.status}
+                  </div>
+                )}
+                <span className={`${styles.chevron} ${detailsOpen ? styles.chevronOpen : ""}`}>&#9654;</span>
               </div>
             </div>
 
-            <div className={styles.cardBody}>
-              {!selectedDetail ? (
-                <div className={styles.muted}>Click a marker or result to see details.</div>
-              ) : selectedDetail.kind === "PLACE" ? (
-                <>
-                  <div className={styles.detailTitle}>{selectedDetail.p.name}</div>
-                  <div className={styles.muted}>
-                    {selectedDetail.p.source} • {selectedDetail.p.price}
-                  </div>
-                  <div className={styles.detailText}>{selectedDetail.p.description ?? ""}</div>
-                  <div className={styles.row}>
-                    <a
-                      className={styles.btnPrimary}
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`https://www.google.com/maps?q=${selectedDetail.p.lat},${selectedDetail.p.lng}`}
-                    >
-                      Directions
-                    </a>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={styles.detailTitle}>{selectedDetail.e.title}</div>
-                  <div className={styles.muted}>{selectedDetail.e.when ?? ""}</div>
-                  <div className={styles.detailText}>{selectedDetail.e.description ?? ""}</div>
-                  <div className={styles.row}>
-                    <a
-                      className={styles.btnPrimary}
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`https://www.google.com/maps?q=${selectedDetail.e.lat},${selectedDetail.e.lng}`}
-                    >
-                      Directions
-                    </a>
-                  </div>
-                </>
-              )}
+            {detailsOpen && (
+              <div className={styles.cardBody}>
+                {!selectedDetail ? (
+                  <div className={styles.muted}>Click a marker or result to see details.</div>
+                ) : selectedDetail.kind === "PLACE" ? (
+                  <>
+                    <div className={styles.detailTitle}>{selectedDetail.p.name}</div>
+                    <div className={styles.muted}>
+                      {selectedDetail.p.source} • {selectedDetail.p.price}
+                    </div>
+                    <div className={styles.detailText}>{selectedDetail.p.description ?? ""}</div>
+                    <div className={styles.row}>
+                      <a
+                        className={styles.btnPrimary}
+                        target="_blank"
+                        rel="noreferrer"
+                        href={`https://www.google.com/maps?q=${selectedDetail.p.lat},${selectedDetail.p.lng}`}
+                      >
+                        Directions
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.detailTitle}>{selectedDetail.e.title}</div>
+                    <div className={styles.muted}>{selectedDetail.e.when ?? ""}</div>
+                    <div className={styles.detailText}>{selectedDetail.e.description ?? ""}</div>
+                    <div className={styles.row}>
+                      <a
+                        className={styles.btnPrimary}
+                        target="_blank"
+                        rel="noreferrer"
+                        href={`https://www.google.com/maps?q=${selectedDetail.e.lat},${selectedDetail.e.lng}`}
+                      >
+                        Directions
+                      </a>
+                    </div>
+                  </>
+                )}
 
-              <div className={styles.footerNote}>
-                AI Planner + Admin tools: <b>coming soon</b> (keep front page clean for now).
+                <div className={styles.footerNote}>
+                  AI Planner + Admin tools: <b>coming soon</b> (keep front page clean for now).
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* VILLAGE BROWSE */}
           <div className={styles.card}>
-            <div className={styles.cardHeader}>
+            <div className={styles.cardHeader} onClick={() => setVillageOpen((o) => !o)}>
               <div className={styles.bigTextSmall}>Browse by Village</div>
+              <span className={`${styles.chevron} ${villageOpen ? styles.chevronOpen : ""}`}>&#9654;</span>
             </div>
-            <div className={styles.cardBody}>
-              <select
-                className={styles.input}
-                value={selectedVillageId ?? ""}
-                onChange={(e) => setSelectedVillageId(e.target.value || null)}
-              >
-                <option value="">Select village</option>
-                {villages.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
+            {villageOpen && (
+              <div className={styles.cardBody}>
+                <select
+                  className={styles.input}
+                  value={selectedVillageId ?? ""}
+                  onChange={(e) => setSelectedVillageId(e.target.value || null)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Select village</option>
+                  {villages.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
 
-              {!selectedVillageId ? (
-                <div className={styles.muted}>Select a village to explore.</div>
-              ) : (
-                <>
-                  <h4>Restaurants</h4>
-                  {restaurants.length === 0 ? (
-                    <div className={styles.muted}>None in this village.</div>
-                  ) : (
-                    restaurants.map((p) => (
-                      <button
-                        key={p.id}
-                        className={styles.item}
-                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
-                      >
-                        {p.name}
-                      </button>
-                    ))
-                  )}
+                {selectedVillageId && (
+                  <>
+                    <h4>Restaurants</h4>
+                    {restaurants.length === 0 ? (
+                      <div className={styles.muted}>None in this village.</div>
+                    ) : (
+                      restaurants.map((p) => (
+                        <button
+                          key={p.id}
+                          className={styles.item}
+                          onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                        >
+                          {p.name}
+                        </button>
+                      ))
+                    )}
 
-                  <h4>Attractions</h4>
-                  {attractions.length === 0 ? (
-                    <div className={styles.muted}>None in this village.</div>
-                  ) : (
-                    attractions.map((p) => (
-                      <button
-                        key={p.id}
-                        className={styles.item}
-                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
-                      >
-                        {p.name}
-                      </button>
-                    ))
-                  )}
+                    <h4>Attractions</h4>
+                    {attractions.length === 0 ? (
+                      <div className={styles.muted}>None in this village.</div>
+                    ) : (
+                      attractions.map((p) => (
+                        <button
+                          key={p.id}
+                          className={styles.item}
+                          onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                        >
+                          {p.name}
+                        </button>
+                      ))
+                    )}
 
-                  <h4>Hotels</h4>
-                  {hotels.length === 0 ? (
-                    <div className={styles.muted}>None in this village.</div>
-                  ) : (
-                    hotels.map((p) => (
-                      <button
-                        key={p.id}
-                        className={styles.item}
-                        onClick={() => setSelected({ kind: "PLACE", id: p.id })}
-                      >
-                        {p.name}
-                      </button>
-                    ))
-                  )}
-                </>
-              )}
-            </div>
+                    <h4>Hotels</h4>
+                    {hotels.length === 0 ? (
+                      <div className={styles.muted}>None in this village.</div>
+                    ) : (
+                      hotels.map((p) => (
+                        <button
+                          key={p.id}
+                          className={styles.item}
+                          onClick={() => setSelected({ kind: "PLACE", id: p.id })}
+                        >
+                          {p.name}
+                        </button>
+                      ))
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
