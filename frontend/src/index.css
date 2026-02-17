@@ -3,7 +3,7 @@
 */
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -34,6 +34,14 @@ body {
   max-width: none;
 }
 
+/* Ensure all form/interactive elements inherit the font */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 /* Keep link styling lightweight; your app-specific styles can override */
 a {
   color: inherit;
@@ -45,7 +53,7 @@ a:hover {
 
 /* Optional: keep focus visible for accessibility */
 :focus-visible {
-  outline: 2px solid rgba(76, 201, 240, 0.8);
+  outline: 2px solid rgba(88, 177, 159, 0.8);
   outline-offset: 2px;
 }
 

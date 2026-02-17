@@ -194,11 +194,11 @@ function emojiIcon(emoji: string, border: string, bg: string) {
     className: "",
     iconSize: [30, 30],
     html: `<div style="
-      width:30px;height:30px;border-radius:12px;
+      width:30px;height:30px;border-radius:6px;
       display:flex;align-items:center;justify-content:center;
       border:1px solid ${border};
       background:${bg};
-      box-shadow: 0 10px 18px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
       font-size:16px;
     ">${emoji}</div>`,
   });
@@ -206,10 +206,10 @@ function emojiIcon(emoji: string, border: string, bg: string) {
 
 function placeIcon(type: Place["type"]) {
   if (type === "RESTAURANT")
-    return emojiIcon("🍴", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
+    return emojiIcon("🍴", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
   if (type === "HOTEL")
-    return emojiIcon("🏨", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
-  return emojiIcon("📍", "rgba(255,255,255,0.18)", "rgba(17,26,42,0.85)");
+    return emojiIcon("🏨", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
+  return emojiIcon("📍", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
 }
 
 function eventIcon(status: EventItem["status"]) {
@@ -268,6 +268,8 @@ export function HomePage() {
 
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [villageOpen, setVillageOpen] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Optional: show API health on the top bar (works once you set VITE_API_BASE_URL)
   const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
@@ -304,6 +306,17 @@ export function HomePage() {
       }
     }
   };
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Load villages from public/data/guam_villages.geojson
   useEffect(() => {
@@ -463,9 +476,8 @@ export function HomePage() {
         <div className={styles.topRight}>
           {/* NEW: MUSIC TOGGLE */}
           <button
-            className={styles.pill}
+            className={`${styles.pill} ${musicOn ? styles.pillActive : ""}`}
             onClick={toggleMusic}
-            style={{ cursor: "pointer" }}
             title="Toggle background music"
           >
             {musicOn ? "🔊 Music: ON" : "🔇 Music: OFF"}
@@ -481,31 +493,32 @@ export function HomePage() {
 
       <div className={styles.main}>
         {/* MAP */}
-        <div className={styles.mapCard}>
+        <div className={styles.mapWrap}>
           <div className={styles.mapHud}>
             <button
-              className={`${styles.hudBtn} ${showPOI ? styles.active : ""}`}
+              className={`${styles.pill} ${styles.hudPill} ${showPOI ? styles.pillActive : ""}`}
               onClick={() => setShowPOI((s) => !s)}
             >
               POIs
             </button>
             <button
-              className={`${styles.hudBtn} ${showEvents ? styles.active : ""}`}
+              className={`${styles.pill} ${styles.hudPill} ${showEvents ? styles.pillActive : ""}`}
               onClick={() => setShowEvents((s) => !s)}
             >
               Events
             </button>
             <button
-              className={`${styles.hudBtn} ${showLive ? styles.active : ""}`}
+              className={`${styles.pill} ${styles.hudPill} ${showLive ? styles.pillActive : ""}`}
               onClick={() => setShowLive((s) => !s)}
             >
               Live
             </button>
-            <button className={styles.hudBtn} onClick={locateMe}>
+            <button className={`${styles.pill} ${styles.hudPill}`} onClick={locateMe}>
               Use my location
             </button>
           </div>
 
+          <div className={styles.mapCard}>
           <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className={styles.map}>
             <TileLayer
               attribution="&copy; OpenStreetMap contributors"
@@ -521,13 +534,13 @@ export function HomePage() {
                 pathOptions={{
                   color:
                     selectedVillageId === v.id
-                      ? "rgba(167,139,250,0.85)"
-                      : "rgba(76,201,240,0.55)",
+                      ? "rgba(88,177,159,0.85)"
+                      : "rgba(88,177,159,0.55)",
                   weight: selectedVillageId === v.id ? 3 : 2,
                   fillColor:
                     selectedVillageId === v.id
-                      ? "rgba(167,139,250,0.20)"
-                      : "rgba(76,201,240,0.10)",
+                      ? "rgba(88,177,159,0.20)"
+                      : "rgba(88,177,159,0.10)",
                   fillOpacity: 0.8,
                 }}
                 eventHandlers={{
@@ -625,6 +638,7 @@ export function HomePage() {
                 </Circle>
               ))}
           </MapContainer>
+          </div>
         </div>
 
         {/* SIDEBAR */}
@@ -762,7 +776,9 @@ export function HomePage() {
                       : selectedDetail.e.status}
                   </div>
                 )}
-                <span className={`${styles.chevron} ${detailsOpen ? styles.chevronOpen : ""}`}>&#9654;</span>
+                <span className={`${styles.chevron} ${detailsOpen ? styles.chevronOpen : ""}`}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
               </div>
             </div>
 
@@ -817,23 +833,46 @@ export function HomePage() {
           <div className={styles.card}>
             <div className={styles.cardHeader} onClick={() => setVillageOpen((o) => !o)}>
               <div className={styles.bigTextSmall}>Browse by Village</div>
-              <span className={`${styles.chevron} ${villageOpen ? styles.chevronOpen : ""}`}>&#9654;</span>
+              <span className={`${styles.chevron} ${villageOpen ? styles.chevronOpen : ""}`}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </span>
             </div>
             {villageOpen && (
               <div className={styles.cardBody}>
-                <select
-                  className={styles.input}
-                  value={selectedVillageId ?? ""}
-                  onChange={(e) => setSelectedVillageId(e.target.value || null)}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Select village</option>
-                  {villages.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
+                <div className={styles.dropdown} ref={dropdownRef}>
+                  <button
+                    className={styles.dropdownTrigger}
+                    onClick={(e) => { e.stopPropagation(); setDropdownOpen((o) => !o); }}
+                  >
+                    <span className={selectedVillageId ? undefined : styles.dropdownPlaceholder}>
+                      {selectedVillageId
+                        ? villages.find((v) => v.id === selectedVillageId)?.name ?? "Select village"
+                        : "Select village"}
+                    </span>
+                    <span className={`${styles.dropdownArrow} ${dropdownOpen ? styles.dropdownArrowOpen : ""}`}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </span>
+                  </button>
+                  {dropdownOpen && (
+                    <div className={styles.dropdownMenu}>
+                      <button
+                        className={`${styles.dropdownItem} ${!selectedVillageId ? styles.dropdownItemActive : ""}`}
+                        onClick={() => { setSelectedVillageId(null); setDropdownOpen(false); }}
+                      >
+                        All villages
+                      </button>
+                      {villages.map((v) => (
+                        <button
+                          key={v.id}
+                          className={`${styles.dropdownItem} ${selectedVillageId === v.id ? styles.dropdownItemActive : ""}`}
+                          onClick={() => { setSelectedVillageId(v.id); setDropdownOpen(false); }}
+                        >
+                          {v.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {selectedVillageId && (
                   <>
