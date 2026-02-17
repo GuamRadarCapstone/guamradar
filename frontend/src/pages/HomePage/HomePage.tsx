@@ -1,23 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import L from "leaflet";
-import {
-  Circle,
-  MapContainer,
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Map, {
+  Layer,
   Marker,
-  Polygon,
+  NavigationControl,
   Popup,
-  TileLayer,
-  useMap,
-} from "react-leaflet";
+  Source,
+} from "react-map-gl/mapbox";
+import type { MapRef } from "react-map-gl/mapbox";
+import type { MapMouseEvent } from "mapbox-gl";
 import styles from "./HomePage.module.css";
 import { EVENTS, LIVE, PLACES, type EventItem, type Place, type Village } from "./demoData";
 
-/* ===================== VILLAGES (GeoJSON -> Leaflet) ===================== */
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
+
+/* ===================== VILLAGES (GeoJSON -> Mapbox) ===================== */
 
 function normalizeVillageId(name: string) {
   return name
     .replace(/\bMunicipality\b/gi, "")
-    .replace(/[’']/g, "")
+    .replace(/['']/g, "")
     .replace(/[åÅ]/g, "a")
     .replace(/[áàâä]/g, "a")
     .replace(/[éèêë]/g, "e")
@@ -29,22 +30,21 @@ function normalizeVillageId(name: string) {
     .replace(/\s+/g, "-");
 }
 
-function toRingLatLng(coords: any[]): [number, number][] {
-  // coords are [lng,lat] -> [lat,lng]
-  return coords.map(([lng, lat]: [number, number]) => [lat, lng]);
+/** Keep GeoJSON [lng, lat] order — no flip needed for Mapbox */
+function toRingGeoJson(coords: any[]): [number, number][] {
+  return coords.map(([lng, lat]: [number, number]) => [lng, lat]);
 }
 
-// --- NEW: bbox helpers to avoid off-island fragments hijacking village polygons ---
 function ringBBox(ring: [number, number][]) {
-  let minLat = Infinity,
-    minLng = Infinity,
-    maxLat = -Infinity,
-    maxLng = -Infinity;
-  for (const [lat, lng] of ring) {
-    if (lat < minLat) minLat = lat;
+  let minLng = Infinity,
+    minLat = Infinity,
+    maxLng = -Infinity,
+    maxLat = -Infinity;
+  for (const [lng, lat] of ring) {
     if (lng < minLng) minLng = lng;
-    if (lat > maxLat) maxLat = lat;
+    if (lat < minLat) minLat = lat;
     if (lng > maxLng) maxLng = lng;
+    if (lat > maxLat) maxLat = lat;
   }
   return { minLat, minLng, maxLat, maxLng };
 }
@@ -65,10 +65,16 @@ function bboxArea(bb: any) {
   return Math.max(0, w) * Math.max(0, h);
 }
 
+/** Correct OSM names to official guam.gov village names */
+const VILLAGE_NAME_FIXES: Record<string, string> = {
+  "Agana Heights": "Agaña Heights",
+  "Asan": "Asan-Maina",
+  "Tamuning": "Tamuning-Tumon-Harmon",
+};
+
 function geoJsonToVillages(geo: any): Village[] {
   const features = geo?.features ?? [];
 
-  // Main island “window” for Guam to avoid selecting far-off fragments/islets
   const GUAM_MAIN_BB = {
     minLat: 13.2,
     maxLat: 13.75,
@@ -82,21 +88,21 @@ function geoJsonToVillages(geo: any): Village[] {
       const geom = f?.geometry;
       if (!rawName || !geom) return null;
 
-      // Remove non-village polygons
       if (rawName === "Guam" || rawName === "United States") return null;
 
       const id = normalizeVillageId(rawName);
-      const cleanName = rawName.replace(/\bMunicipality\b/gi, "").trim();
+      const stripped = rawName.replace(/\bMunicipality\b/gi, "").trim();
+      const cleanName = VILLAGE_NAME_FIXES[stripped] ?? stripped;
 
       const candidateRings: [number, number][][] = [];
 
       if (geom.type === "Polygon") {
         const outer = geom.coordinates?.[0];
-        if (outer?.length) candidateRings.push(toRingLatLng(outer));
+        if (outer?.length) candidateRings.push(toRingGeoJson(outer));
       } else if (geom.type === "MultiPolygon") {
         for (const poly of geom.coordinates ?? []) {
           const outer = poly?.[0];
-          if (outer?.length) candidateRings.push(toRingLatLng(outer));
+          if (outer?.length) candidateRings.push(toRingGeoJson(outer));
         }
       } else {
         return null;
@@ -104,9 +110,6 @@ function geoJsonToVillages(geo: any): Village[] {
 
       if (!candidateRings.length) return null;
 
-      // Pick the ring that overlaps Guam main bbox the most.
-      // IMPORTANT: use absolute overlap area (not overlap/area) so tiny fragments/islets
-      // don't win just because they're fully inside the bounding box.
       let best = candidateRings[0];
       let bestOverlap = -1;
       let bestArea = -1;
@@ -127,15 +130,15 @@ function geoJsonToVillages(geo: any): Village[] {
     .filter(Boolean) as Village[];
 }
 
-// Ray-casting point-in-polygon for a single outer ring.
-// ring is [[lat,lng], ...]
+// Ray-casting point-in-polygon.
+// ring is [[lng,lat], ...] (GeoJSON order)
 function pointInRing(lat: number, lng: number, ring: [number, number][]) {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const yi = ring[i][0];
-    const xi = ring[i][1];
-    const yj = ring[j][0];
-    const xj = ring[j][1];
+    const yi = ring[i][1]; // lat
+    const xi = ring[i][0]; // lng
+    const yj = ring[j][1];
+    const xj = ring[j][0];
 
     const intersect =
       yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
@@ -145,7 +148,6 @@ function pointInRing(lat: number, lng: number, ring: [number, number][]) {
 }
 
 function findVillageForPoint(villages: Village[], lat: number, lng: number): Village | null {
-  // First pass: strict contains
   for (const v of villages) {
     if (pointInRing(lat, lng, v.polygon)) return v;
   }
@@ -159,11 +161,10 @@ type Selected = { kind: "PLACE"; id: string } | { kind: "EVENT"; id: string } | 
 
 /* ===================== CONSTANTS ===================== */
 
-const DEFAULT_CENTER: [number, number] = [13.45, 144.78];
-const DEFAULT_ZOOM = 11;
+const DEFAULT_CENTER: { lng: number; lat: number } = { lng: 144.78, lat: 13.45 };
+const DEFAULT_ZOOM = 10.8;
 
 /* ===================== MUSIC (background) ===================== */
-// Put your file here: frontend/public/bgm.mp3
 const MUSIC_FILE = "Freddy.mp3";
 
 /* ===================== HELPERS ===================== */
@@ -189,64 +190,77 @@ function mockOpenNow(place: Place) {
   return (x & 1) === 0;
 }
 
-function emojiIcon(emoji: string, border: string, bg: string) {
-  return L.divIcon({
-    className: "",
-    iconSize: [30, 30],
-    html: `<div style="
-      width:30px;height:30px;border-radius:6px;
-      display:flex;align-items:center;justify-content:center;
-      border:1px solid ${border};
-      background:${bg};
-      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
-      font-size:16px;
-    ">${emoji}</div>`,
-  });
+/* ===================== MAPBOX HELPERS ===================== */
+
+function placeEmoji(type: Place["type"]) {
+  if (type === "RESTAURANT") return "🍴";
+  if (type === "HOTEL") return "🏨";
+  return "📍";
 }
 
-function placeIcon(type: Place["type"]) {
-  if (type === "RESTAURANT")
-    return emojiIcon("🍴", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
-  if (type === "HOTEL")
-    return emojiIcon("🏨", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
-  return emojiIcon("📍", "rgba(255,255,255,0.18)", "rgba(20,20,20,0.85)");
+function eventEmoji(status: EventItem["status"]) {
+  return status === "VERIFIED" ? "📅" : "🕓";
 }
 
-function eventIcon(status: EventItem["status"]) {
-  return status === "VERIFIED"
-    ? emojiIcon("📅", "rgba(34,197,94,0.45)", "rgba(34,197,94,0.12)")
-    : emojiIcon("🕓", "rgba(245,158,11,0.45)", "rgba(245,158,11,0.12)");
+/** Generate a GeoJSON polygon ring approximating a circle */
+function circlePolygon(
+  centerLng: number,
+  centerLat: number,
+  radiusMeters: number,
+  steps = 64,
+): [number, number][] {
+  const coords: [number, number][] = [];
+  const km = radiusMeters / 1000;
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    const dLat = (km / 6371) * (180 / Math.PI) * Math.cos(angle);
+    const dLng =
+      ((km / 6371) * (180 / Math.PI) * Math.sin(angle)) /
+      Math.cos((centerLat * Math.PI) / 180);
+    coords.push([centerLng + dLng, centerLat + dLat]);
+  }
+  return coords;
 }
 
-/* ===================== MAP CONTROLLER ===================== */
-
-function MapController({
-  villages,
-  selectedVillageId,
-  focus,
+function EmojiPin({
+  emoji,
+  border,
+  bg,
 }: {
-  villages: Village[];
-  selectedVillageId: string | null;
-  focus: { lat: number; lng: number } | null;
+  emoji: string;
+  border: string;
+  bg: string;
 }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!selectedVillageId) return;
-    const v = villages.find((x) => x.id === selectedVillageId);
-    if (!v) return;
-    const bounds = L.latLngBounds(v.polygon as any);
-    // NEW: maxZoom prevents weird “zoom into tiny fragment”
-    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
-  }, [map, selectedVillageId, villages]);
-
-  useEffect(() => {
-    if (!focus) return;
-    map.setView([focus.lat, focus.lng], Math.max(map.getZoom(), 13));
-  }, [map, focus]);
-
-  return null;
+  return (
+    <div
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 6,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: `1px solid ${border}`,
+        background: bg,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+        fontSize: 16,
+        cursor: "pointer",
+      }}
+    >
+      {emoji}
+    </div>
+  );
 }
+
+/* ===================== POPUP STATE TYPE ===================== */
+
+type PopupInfo =
+  | { kind: "VILLAGE"; village: Village; lng: number; lat: number }
+  | { kind: "PLACE"; place: Place }
+  | { kind: "EVENT"; event: EventItem }
+  | { kind: "USER"; lng: number; lat: number; acc: number | null }
+  | { kind: "LIVE"; hotspot: (typeof LIVE)[number] }
+  | null;
 
 /* ===================== PAGE ===================== */
 
@@ -263,19 +277,23 @@ export function HomePage() {
   const [showLive, setShowLive] = useState(false);
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
-  const [userAcc, setUserAcc] = useState<number | null>(null); // meters
+  const [userAcc, setUserAcc] = useState<number | null>(null);
   const [selected, setSelected] = useState<Selected>(null);
+  const [popupInfo, setPopupInfo] = useState<PopupInfo>(null);
+  const [cursor, setCursor] = useState<string>("");
 
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [villageOpen, setVillageOpen] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapRef>(null);
 
-  // Optional: show API health on the top bar (works once you set VITE_API_BASE_URL)
   const [apiStatus, setApiStatus] = useState<"checking" | "up" | "down">("checking");
 
   /* ===================== MUSIC STATE ===================== */
   const [musicOn, setMusicOn] = useState(false);
+  const [showVillages, setShowVillages] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -299,7 +317,7 @@ export function HomePage() {
       setMusicOn(false);
     } else {
       try {
-        await a.play(); // requires a user click
+        await a.play();
         setMusicOn(true);
       } catch {
         // autoplay blocked until user interacts
@@ -339,6 +357,40 @@ export function HomePage() {
       .then((r) => (r.ok ? setApiStatus("up") : setApiStatus("down")))
       .catch(() => setApiStatus("down"));
   }, []);
+
+  /* ===================== FIT BOUNDS ON VILLAGE SELECT ===================== */
+  useEffect(() => {
+    if (!selectedVillageId || !mapRef.current) return;
+    const v = villages.find((x) => x.id === selectedVillageId);
+    if (!v) return;
+    const bb = ringBBox(v.polygon);
+    mapRef.current.fitBounds(
+      [
+        [bb.minLng, bb.minLat],
+        [bb.maxLng, bb.maxLat],
+      ],
+      { padding: 30, maxZoom: 13 },
+    );
+  }, [selectedVillageId, villages]);
+
+  /* ===================== FLY TO ON SELECTED PLACE/EVENT ===================== */
+  const focus = useMemo(() => {
+    if (!selected) return null;
+    if (selected.kind === "PLACE") {
+      const p = PLACES.find((x) => x.id === selected.id);
+      return p ? { lat: p.lat, lng: p.lng } : null;
+    }
+    const e = EVENTS.find((x) => x.id === selected.id);
+    return e ? { lat: e.lat, lng: e.lng } : null;
+  }, [selected]);
+
+  useEffect(() => {
+    if (!focus || !mapRef.current) return;
+    mapRef.current.flyTo({
+      center: [focus.lng, focus.lat],
+      zoom: Math.max(mapRef.current.getZoom(), 13),
+    });
+  }, [focus]);
 
   const selectedVillageName = useMemo(() => {
     if (!selectedVillageId) return "All Guam";
@@ -404,16 +456,6 @@ export function HomePage() {
     return combined;
   }, [filteredPlaces, filteredEvents, userLoc]);
 
-  const focus = useMemo(() => {
-    if (!selected) return null;
-    if (selected.kind === "PLACE") {
-      const p = PLACES.find((x) => x.id === selected.id);
-      return p ? { lat: p.lat, lng: p.lng } : null;
-    }
-    const e = EVENTS.find((x) => x.id === selected.id);
-    return e ? { lat: e.lat, lng: e.lng } : null;
-  }, [selected]);
-
   function reset() {
     setSelectedVillageId(null);
     setCategory("ALL");
@@ -421,6 +463,7 @@ export function HomePage() {
     setOpenNow(false);
     setNearMe(false);
     setSelected(null);
+    setPopupInfo(null);
   }
 
   function locateMe() {
@@ -433,8 +476,6 @@ export function HomePage() {
       setUserLoc({ lat, lng });
       setUserAcc(acc);
 
-      // Auto-detect your village from the polygon the point falls in.
-      // If the browser's location is very imprecise (desktop/IP-based), don't force a village.
       if (villages.length) {
         if (acc === null || acc <= 1500) {
           const v = findVillageForPoint(villages, lat, lng);
@@ -463,6 +504,228 @@ export function HomePage() {
     return e ? { kind: "EVENT" as const, e } : null;
   }, [selected]);
 
+  /* ===================== VILLAGE GEOJSON FOR MAPBOX ===================== */
+
+  const villageGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    return {
+      type: "FeatureCollection",
+      features: villages.map((v) => ({
+        type: "Feature",
+        properties: {
+          id: v.id,
+          name: v.name,
+          selected: v.id === selectedVillageId ? 1 : 0,
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [v.polygon],
+        },
+      })),
+    };
+  }, [villages, selectedVillageId]);
+
+  /** Point centroids for village name labels */
+  const villageLabelGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    return {
+      type: "FeatureCollection",
+      features: villages.map((v) => {
+        // Compute centroid of polygon ring
+        let sumLng = 0, sumLat = 0;
+        const n = v.polygon.length;
+        for (const [lng, lat] of v.polygon) {
+          sumLng += lng;
+          sumLat += lat;
+        }
+        return {
+          type: "Feature" as const,
+          properties: {
+            id: v.id,
+            name: v.name,
+            selected: v.id === selectedVillageId ? 1 : 0,
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [sumLng / n, sumLat / n],
+          },
+        };
+      }),
+    };
+  }, [villages, selectedVillageId]);
+
+  /* ===================== USER LOCATION GEOJSON ===================== */
+
+  const userLocGeoJson = useMemo((): GeoJSON.FeatureCollection | null => {
+    if (!userLoc) return null;
+    const radius = userAcc ? Math.max(80, Math.min(userAcc, 600)) : 80;
+    return {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [circlePolygon(userLoc.lng, userLoc.lat, radius)],
+          },
+        },
+      ],
+    };
+  }, [userLoc, userAcc]);
+
+  /* ===================== LIVE HOTSPOTS GEOJSON ===================== */
+
+  const liveGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    return {
+      type: "FeatureCollection",
+      features: LIVE.map((x) => ({
+        type: "Feature",
+        properties: { id: x.id, label: x.label, count: x.count },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            circlePolygon(x.lng, x.lat, Math.max(300, Math.min(2000, x.count * 35))),
+          ],
+        },
+      })),
+    };
+  }, []);
+
+  /* ===================== IMPERATIVE VILLAGE LAYERS ===================== */
+
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map || !mapReady) return;
+
+    const SRC = "villages";
+    const SRC_LABELS = "village-labels";
+
+    // Add or update village polygon source + layers
+    const existingSrc = map.getSource(SRC) as any;
+    if (existingSrc) {
+      existingSrc.setData(villageGeoJson);
+    } else {
+      map.addSource(SRC, { type: "geojson", data: villageGeoJson });
+      map.addLayer({
+        id: "village-fill",
+        type: "fill",
+        source: SRC,
+        paint: {
+          "fill-color": [
+            "case",
+            ["==", ["get", "selected"], 1],
+            "rgba(69,217,168,0.25)",
+            "rgba(69,217,168,0.10)",
+          ],
+          "fill-opacity": 1,
+          "fill-emissive-strength": 1,
+        },
+      } as any);
+      map.addLayer({
+        id: "village-outline",
+        type: "line",
+        source: SRC,
+        paint: {
+          "line-color": [
+            "case",
+            ["==", ["get", "selected"], 1],
+            "rgba(69,217,168,0.9)",
+            "rgba(69,217,168,0.55)",
+          ],
+          "line-width": [
+            "case",
+            ["==", ["get", "selected"], 1],
+            3,
+            1.5,
+          ],
+          "line-emissive-strength": 1,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      } as any);
+    }
+
+    // Add or update village label source + layer
+    const existingLabelSrc = map.getSource(SRC_LABELS) as any;
+    if (existingLabelSrc) {
+      existingLabelSrc.setData(villageLabelGeoJson);
+    } else {
+      map.addSource(SRC_LABELS, { type: "geojson", data: villageLabelGeoJson });
+      map.addLayer({
+        id: "village-label",
+        type: "symbol",
+        source: SRC_LABELS,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": [
+            "case",
+            ["==", ["get", "selected"], 1],
+            14,
+            11,
+          ],
+          "text-font": ["DIN Pro Medium", "Arial Unicode MS Regular"],
+          "text-anchor": "center",
+          "text-allow-overlap": false,
+          "text-ignore-placement": false,
+          "text-padding": 6,
+          "text-transform": "uppercase",
+          "text-letter-spacing": 0.08,
+        },
+        paint: {
+          "text-color": [
+            "case",
+            ["==", ["get", "selected"], 1],
+            "rgba(69,217,168,1)",
+            "rgba(69,217,168,0.65)",
+          ],
+          "text-halo-color": "rgba(0,0,0,0.85)",
+          "text-halo-width": 2,
+          "text-emissive-strength": 1,
+        },
+      } as any);
+    }
+
+    // Toggle visibility
+    const vis = showVillages ? "visible" : "none";
+    if (map.getLayer("village-fill")) map.setLayoutProperty("village-fill", "visibility", vis);
+    if (map.getLayer("village-outline")) map.setLayoutProperty("village-outline", "visibility", vis);
+    if (map.getLayer("village-label")) map.setLayoutProperty("village-label", "visibility", vis);
+
+    // Hide/show Standard style labels based on village overlay
+    try {
+      const showLabels = !showVillages;
+      (map as any).setConfigProperty("basemap", "showPlaceLabels", showLabels);
+      (map as any).setConfigProperty("basemap", "showPointOfInterestLabels", showLabels);
+      (map as any).setConfigProperty("basemap", "showRoadLabels", showLabels);
+      (map as any).setConfigProperty("basemap", "showTransitLabels", showLabels);
+    } catch {
+      // Standard style config not available
+    }
+  }, [mapReady, villageGeoJson, villageLabelGeoJson, showVillages]);
+
+  /* ===================== MAP EVENT HANDLERS ===================== */
+
+  const onVillageClick = useCallback(
+    (e: MapMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature) return;
+      const villageId = feature.properties?.id as string;
+      setSelectedVillageId(villageId);
+      setSelected(null);
+      setPopupInfo({
+        kind: "VILLAGE",
+        village: villages.find((v) => v.id === villageId)!,
+        lng: e.lngLat.lng,
+        lat: e.lngLat.lat,
+      });
+    },
+    [villages],
+  );
+
+  const onMouseEnter = useCallback(() => setCursor("pointer"), []);
+  const onMouseLeave = useCallback(() => setCursor(""), []);
+
   return (
     <div className={styles.page}>
       <div className={styles.topbar}>
@@ -474,7 +737,6 @@ export function HomePage() {
         </div>
 
         <div className={styles.topRight}>
-          {/* NEW: MUSIC TOGGLE */}
           <button
             className={`${styles.pill} ${musicOn ? styles.pillActive : ""}`}
             onClick={toggleMusic}
@@ -519,125 +781,293 @@ export function HomePage() {
           </div>
 
           <div className={styles.mapCard}>
-          <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className={styles.map}>
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+          <div className={styles.map} style={{ width: "100%", height: "100%" }}>
+          <Map
+            ref={mapRef}
+            mapboxAccessToken={MAPBOX_TOKEN}
+            initialViewState={{
+              longitude: DEFAULT_CENTER.lng,
+              latitude: DEFAULT_CENTER.lat,
+              zoom: DEFAULT_ZOOM,
+            }}
+            mapStyle="mapbox://styles/mapbox/standard"
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "#0b0b19",
+              opacity: mapReady ? 1 : 0,
+              transition: "opacity 0.3s ease",
+            }}
+            interactiveLayerIds={showVillages ? ["village-fill"] : []}
+            onClick={onVillageClick}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
+            cursor={cursor}
+            onLoad={(e) => {
+              const map = e.target;
+              try {
+                (map as any).setConfigProperty("basemap", "lightPreset", "night");
+                map.setProjection("globe");
+              } catch (err) {
+                console.warn("Map config error:", err);
+              }
+              // Wait until map has fully repainted with night mode before showing
+              map.once("idle", () => setMapReady(true));
+            }}
+          >
+            <NavigationControl position="top-left" showCompass />
 
-            <MapController villages={villages} selectedVillageId={selectedVillageId} focus={focus} />
+            {/* Center on Guam button — styled like zoom controls */}
+            <div className={styles.centerBtn} title="Center on Guam" onClick={() => {
+              mapRef.current?.flyTo({
+                center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+                zoom: DEFAULT_ZOOM,
+                duration: 1000,
+              });
+            }}>
+              <img src="/guam.png" alt="Guam" width="20" height="20" style={{ objectFit: "contain" }} />
+            </div>
 
-            {villages.map((v) => (
-              <Polygon
-                key={v.id}
-                positions={v.polygon}
-                pathOptions={{
-                  color:
-                    selectedVillageId === v.id
-                      ? "rgba(88,177,159,0.85)"
-                      : "rgba(88,177,159,0.55)",
-                  weight: selectedVillageId === v.id ? 3 : 2,
-                  fillColor:
-                    selectedVillageId === v.id
-                      ? "rgba(88,177,159,0.20)"
-                      : "rgba(88,177,159,0.10)",
-                  fillOpacity: 0.8,
-                }}
-                eventHandlers={{
-                  click: () => {
-                    setSelectedVillageId(v.id);
-                    setSelected(null);
-                  },
-                }}
-              >
-                <Popup>
-                  <b>{v.name}</b>
-                  <div className={styles.muted}>Tap to explore</div>
-                </Popup>
-              </Polygon>
-            ))}
+            {/* Toggle village highlights */}
+            <div
+              className={`${styles.centerBtn} ${styles.villageToggle}`}
+              title={showVillages ? "Hide village borders" : "Show village borders"}
+              onClick={() => setShowVillages((v) => !v)}
+              style={{ opacity: showVillages ? 1 : 0.5 }}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="rgba(69,217,168,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2" />
+                <line x1="8" y1="2" x2="8" y2="18" />
+                <line x1="16" y1="6" x2="16" y2="22" />
+              </svg>
+            </div>
 
-            {userLoc && (
-              <Circle
-                center={[userLoc.lat, userLoc.lng]}
-                // Show GPS accuracy if available (clamped so it doesn't take over the map)
-                radius={userAcc ? Math.max(80, Math.min(userAcc, 600)) : 80}
-                pathOptions={{
-                  color: "rgba(34,197,94,0.9)",
-                  fillColor: "rgba(34,197,94,0.25)",
-                  fillOpacity: 1,
-                  weight: 2,
-                }}
-              >
-                <Popup>
-                  <b>You are here</b>
-                  <div className={styles.muted}>
-                    {userLoc.lat.toFixed(5)}, {userLoc.lng.toFixed(5)}
-                    {typeof userAcc === "number" ? ` • ±${Math.round(userAcc)}m` : ""}
-                  </div>
-                </Popup>
-              </Circle>
+            {/* Village polygons + labels managed imperatively via useEffect above */}
+
+            {/* User location circle */}
+            {mapReady && userLocGeoJson && (
+              <Source id="user-loc" type="geojson" data={userLocGeoJson}>
+                <Layer
+                  id="user-loc-fill"
+                  type="fill"
+                  paint={{
+                    "fill-color": "rgba(69,217,168,0.25)",
+                    "fill-opacity": 1,
+                    "fill-emissive-strength": 1,
+                  } as any}
+                />
+                <Layer
+                  id="user-loc-outline"
+                  type="line"
+                  paint={{
+                    "line-color": "rgba(69,217,168,0.9)",
+                    "line-width": 2,
+                    "line-emissive-strength": 1,
+                  } as any}
+                />
+              </Source>
             )}
 
+            {/* User location marker */}
+            {userLoc && (
+              <Marker
+                longitude={userLoc.lng}
+                latitude={userLoc.lat}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setPopupInfo({
+                    kind: "USER",
+                    lng: userLoc.lng,
+                    lat: userLoc.lat,
+                    acc: userAcc,
+                  });
+                }}
+              >
+                <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: "50%",
+                    background: "#45d9a8",
+                    border: "2px solid white",
+                    boxShadow: "0 0 6px rgba(69,217,168,0.6)",
+                  }}
+                />
+              </Marker>
+            )}
+
+            {/* POI markers */}
             {showPOI &&
               filteredPlaces.map((p) => (
                 <Marker
                   key={p.id}
-                  position={[p.lat, p.lng]}
-                  icon={placeIcon(p.type)}
-                  eventHandlers={{
-                    click: () => setSelected({ kind: "PLACE", id: p.id }),
+                  longitude={p.lng}
+                  latitude={p.lat}
+                  anchor="center"
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    setSelected({ kind: "PLACE", id: p.id });
+                    setPopupInfo({ kind: "PLACE", place: p });
                   }}
                 >
-                  <Popup>
-                    <b>{p.name}</b>
-                    <div className={styles.muted}>
-                      {p.type} • {p.source}
-                    </div>
-                  </Popup>
+                  <EmojiPin
+                    emoji={placeEmoji(p.type)}
+                    border="rgba(255,255,255,0.18)"
+                    bg="rgba(20,20,20,0.85)"
+                  />
                 </Marker>
               ))}
 
+            {/* Event markers */}
             {showEvents &&
-              filteredEvents.map((e) => (
+              filteredEvents.map((ev) => (
                 <Marker
-                  key={e.id}
-                  position={[e.lat, e.lng]}
-                  icon={eventIcon(e.status)}
-                  eventHandlers={{
-                    click: () => setSelected({ kind: "EVENT", id: e.id }),
+                  key={ev.id}
+                  longitude={ev.lng}
+                  latitude={ev.lat}
+                  anchor="center"
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    setSelected({ kind: "EVENT", id: ev.id });
+                    setPopupInfo({ kind: "EVENT", event: ev });
                   }}
                 >
-                  <Popup>
-                    <b>{e.title}</b>
-                    <div className={styles.muted}>
-                      {e.when ?? ""} • {e.source}
-                    </div>
-                  </Popup>
+                  <EmojiPin
+                    emoji={eventEmoji(ev.status)}
+                    border={
+                      ev.status === "VERIFIED"
+                        ? "rgba(69,217,168,0.45)"
+                        : "rgba(245,158,11,0.45)"
+                    }
+                    bg={
+                      ev.status === "VERIFIED"
+                        ? "rgba(69,217,168,0.12)"
+                        : "rgba(245,158,11,0.12)"
+                    }
+                  />
                 </Marker>
               ))}
 
+            {/* Live hotspot zones */}
+            {mapReady && showLive && (
+              <Source id="live-zones" type="geojson" data={liveGeoJson}>
+                <Layer
+                  id="live-fill"
+                  type="fill"
+                  paint={{
+                    "fill-color": "rgba(245,158,11,0.18)",
+                    "fill-opacity": 0.9,
+                    "fill-emissive-strength": 1,
+                  } as any}
+                />
+                <Layer
+                  id="live-outline"
+                  type="line"
+                  paint={{
+                    "line-color": "rgba(245,158,11,0.55)",
+                    "line-width": 2,
+                    "line-emissive-strength": 1,
+                  } as any}
+                />
+              </Source>
+            )}
+
+            {/* Live hotspot markers (clickable centers) */}
             {showLive &&
               LIVE.map((x) => (
-                <Circle
+                <Marker
                   key={x.id}
-                  center={[x.lat, x.lng]}
-                  radius={Math.max(300, Math.min(2000, x.count * 35))}
-                  pathOptions={{
-                    color: "rgba(245,158,11,0.55)",
-                    fillColor: "rgba(245,158,11,0.18)",
-                    fillOpacity: 0.9,
-                    weight: 2,
+                  longitude={x.lng}
+                  latitude={x.lat}
+                  anchor="center"
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    setPopupInfo({ kind: "LIVE", hotspot: x });
                   }}
                 >
-                  <Popup>
-                    <b>Live activity</b>
-                    <div>{x.label}</div>
-                    <div className={styles.muted}>{x.count} recent check-ins (demo)</div>
-                  </Popup>
-                </Circle>
+                  <div
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: "rgba(245,158,11,0.8)",
+                      border: "1px solid rgba(245,158,11,1)",
+                    }}
+                  />
+                </Marker>
               ))}
-          </MapContainer>
+
+            {/* Popup */}
+            {popupInfo && popupInfo.kind === "VILLAGE" && (
+              <Popup
+                longitude={popupInfo.lng}
+                latitude={popupInfo.lat}
+                anchor="bottom"
+                onClose={() => setPopupInfo(null)}
+              >
+                <b>{popupInfo.village.name}</b>
+                <div className={styles.muted}>Tap to explore</div>
+              </Popup>
+            )}
+
+            {popupInfo && popupInfo.kind === "PLACE" && (
+              <Popup
+                longitude={popupInfo.place.lng}
+                latitude={popupInfo.place.lat}
+                anchor="bottom"
+                onClose={() => setPopupInfo(null)}
+              >
+                <b>{popupInfo.place.name}</b>
+                <div className={styles.muted}>
+                  {popupInfo.place.type} • {popupInfo.place.source}
+                </div>
+              </Popup>
+            )}
+
+            {popupInfo && popupInfo.kind === "EVENT" && (
+              <Popup
+                longitude={popupInfo.event.lng}
+                latitude={popupInfo.event.lat}
+                anchor="bottom"
+                onClose={() => setPopupInfo(null)}
+              >
+                <b>{popupInfo.event.title}</b>
+                <div className={styles.muted}>
+                  {popupInfo.event.when ?? ""} • {popupInfo.event.source}
+                </div>
+              </Popup>
+            )}
+
+            {popupInfo && popupInfo.kind === "USER" && (
+              <Popup
+                longitude={popupInfo.lng}
+                latitude={popupInfo.lat}
+                anchor="bottom"
+                onClose={() => setPopupInfo(null)}
+              >
+                <b>You are here</b>
+                <div className={styles.muted}>
+                  {popupInfo.lat.toFixed(5)}, {popupInfo.lng.toFixed(5)}
+                  {typeof popupInfo.acc === "number" ? ` • ±${Math.round(popupInfo.acc)}m` : ""}
+                </div>
+              </Popup>
+            )}
+
+            {popupInfo && popupInfo.kind === "LIVE" && (
+              <Popup
+                longitude={popupInfo.hotspot.lng}
+                latitude={popupInfo.hotspot.lat}
+                anchor="bottom"
+                onClose={() => setPopupInfo(null)}
+              >
+                <b>Live activity</b>
+                <div>{popupInfo.hotspot.label}</div>
+                <div className={styles.muted}>{popupInfo.hotspot.count} recent check-ins (demo)</div>
+              </Popup>
+            )}
+          </Map>
+          </div>
           </div>
         </div>
 
@@ -857,7 +1287,15 @@ export function HomePage() {
                     <div className={styles.dropdownMenu}>
                       <button
                         className={`${styles.dropdownItem} ${!selectedVillageId ? styles.dropdownItemActive : ""}`}
-                        onClick={() => { setSelectedVillageId(null); setDropdownOpen(false); }}
+                        onClick={() => {
+                          setSelectedVillageId(null);
+                          setDropdownOpen(false);
+                          mapRef.current?.flyTo({
+                            center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat],
+                            zoom: DEFAULT_ZOOM,
+                            duration: 1000,
+                          });
+                        }}
                       >
                         All villages
                       </button>

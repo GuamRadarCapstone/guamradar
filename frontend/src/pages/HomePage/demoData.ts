@@ -4,6 +4,7 @@ export type EventStatus = "VERIFIED" | "PENDING";
 export type Village = {
   id: string;
   name: string;
+  /** Outer ring in GeoJSON order: [lng, lat][] */
   polygon: [number, number][];
 };
 

@@ -53,7 +53,53 @@ a:hover {
 
 /* Optional: keep focus visible for accessibility */
 :focus-visible {
-  outline: 2px solid rgba(88, 177, 159, 0.8);
+  outline: 2px solid rgba(69, 217, 168, 0.8);
   outline-offset: 2px;
+}
+
+/* ── Mapbox GL control overrides (global, high specificity) ── */
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button {
+  background-color: transparent !important;
+  width: 34px !important;
+  height: 34px !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: background 0.15s ease;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button + button {
+  border-top: none !important;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:last-child {
+  border-bottom: none !important;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:active {
+  background-color: rgba(69, 217, 168, 0.15) !important;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:focus {
+  box-shadow: none !important;
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button .mapboxgl-ctrl-icon {
+  filter: invert(1) brightness(0.85);
+}
+
+.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-icon {
+  filter: invert(1) brightness(1);
 }
 
