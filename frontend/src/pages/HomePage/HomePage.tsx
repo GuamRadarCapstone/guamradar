@@ -10,10 +10,9 @@ import {
   useMap,
 } from "react-leaflet";
 import styles from "./HomePage.module.css";
-import { EVENTS, LIVE, PLACES, type EventItem, type Place } from "./demoData";
+import { EVENTS, LIVE, PLACES, type EventItem, type Place, type Village } from "./demoData";
 
 /* ===================== VILLAGES (GeoJSON -> Leaflet) ===================== */
-type Village = { id: string; name: string; polygon: [number, number][] };
 
 function normalizeVillageId(name: string) {
   return name
@@ -313,14 +312,6 @@ export function HomePage() {
         setVillages([]);
       });
   }, []);
-
-  // Debug: shows what loaded
-  useEffect(() => {
-    console.log(
-      "Loaded villages:",
-      villages.map((v) => v.name).sort()
-    );
-  }, [villages]);
 
   useEffect(() => {
     const base = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
@@ -889,4 +880,4 @@ export function HomePage() {
       </div>
     </div>
   );
-} //Yes sir  this is my homepage.tsx. Just replace or update anything that needs to be changed but keep everythign else
+}

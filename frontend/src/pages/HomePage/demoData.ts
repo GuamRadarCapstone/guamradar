@@ -89,31 +89,4 @@ export const LIVE: LiveHotspot[] = [
   { id: "live_tumon", lat: 13.5152, lng: 144.8090, count: 42, label: "Tumon hot spot" },
 ];
 
-function geoJsonPolygonToLatLngArray(geom: any): [number, number][] {
-  // Polygon -> take the outer ring only (ring 0)
-  if (geom?.type === "Polygon") {
-    return geom.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]);
-  }
-
-  // MultiPolygon -> take the first polygon’s outer ring
-  if (geom?.type === "MultiPolygon") {
-    return geom.coordinates[0][0].map(([lng, lat]: [number, number]) => [lat, lng]);
-  }
-
-  return [];
-}
-
-
-export const VILLAGES = [
-  {
-    id: "tumon",
-    name: "Tumon",
-    polygon: [
-      [13.518, 144.802],
-      [13.518, 144.816],
-      [13.506, 144.816],
-      [13.506, 144.802],
-    ],
-  },
-] as const;
 
