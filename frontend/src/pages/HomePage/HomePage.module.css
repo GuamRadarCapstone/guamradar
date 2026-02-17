@@ -5,10 +5,10 @@
   --text: #e8e8e8;
   --text-secondary: #c4c4c4;
   --muted: #8a8a8a;
-  --accent: #58b19f;
-  --accent2: #58b19f;
+  --accent: #45d9a8;
+  --accent2: #45d9a8;
   --warn: #f59e0b;
-  --good: #22c55e;
+  --good: #45d9a8;
   --border: rgba(255, 255, 255, 0.08);
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   --radius: 8px;
@@ -59,7 +59,7 @@
   height: 8px;
   border-radius: var(--pill);
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88, 177, 159, 0.15);
+  box-shadow: 0 0 0 3px rgba(69, 217, 168, 0.15);
 }
 
 .topRight {
@@ -88,15 +88,15 @@
 }
 
 .pillActive {
-  border-color: rgba(88, 177, 159, 0.5);
-  background: rgba(88, 177, 159, 0.18);
-  color: #e8e8e8;
+  background: rgba(69, 217, 168, 0.12);
+  color: var(--accent);
+  border-color: rgba(69, 217, 168, 0.3);
 }
-/* Opaque active for buttons over the map so tiles don't bleed through */
+/* Opaque active for buttons over the map so tiles don't bleed through. */
 .hudPill.pillActive {
-  background: #1a3d32 !important;
-  border-color: #58b19f !important;
-  color: #ffffff !important;
+  background: #143d2e !important;
+  border-color: rgba(69, 217, 168, 0.4) !important;
+  color: var(--accent) !important;
 }
 
 /* ── Main layout ── */
@@ -128,43 +128,116 @@
   width: 100%;
 }
 
-/* Leaflet control protection */
-.map :global(.leaflet-control-container) {
-  z-index: 800;
-}
-
-.map :global(.leaflet-top),
-.map :global(.leaflet-bottom) {
-  z-index: 800;
-}
-
-.map :global(.leaflet-control-zoom) {
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-sm) !important;
+/* Mapbox GL control theming — matches dark neutral UI
+   Double-class specificity to override mapbox-gl.css defaults */
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group) {
+  background: #141414 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
   overflow: hidden;
-  box-shadow: var(--shadow) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(12px);
 }
 
-.map :global(.leaflet-control-zoom a) {
-  background: rgba(10, 10, 10, 0.85) !important;
-  color: var(--text) !important;
-  border-bottom: 1px solid var(--border) !important;
-  width: 30px !important;
-  height: 30px !important;
-  line-height: 30px !important;
-  font-size: 14px !important;
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button) {
+  background-color: transparent !important;
+  color: #e8e8e8 !important;
+  width: 34px !important;
+  height: 34px !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   transition: background 0.15s ease;
 }
 
-.map :global(.leaflet-control-zoom a:hover) {
-  background: rgba(30, 30, 30, 0.9) !important;
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button + button) {
+  border-top: none !important;
 }
 
-.map :global(.leaflet-control-zoom a:last-child) {
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:first-child) {
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:last-child) {
   border-bottom: none !important;
+  border-radius: 0 0 8px 8px !important;
 }
 
-.map :global(.leaflet-control-attribution) {
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:only-child) {
+  border-radius: 8px !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover) {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:active) {
+  background-color: rgba(69, 217, 168, 0.15) !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:focus) {
+  box-shadow: none !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:focus:focus-visible) {
+  box-shadow: 0 0 0 2px rgba(69, 217, 168, 0.5) !important;
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button .mapboxgl-ctrl-icon) {
+  filter: invert(1) brightness(0.85);
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button:hover .mapboxgl-ctrl-icon) {
+  filter: invert(1) brightness(1);
+}
+
+/* Compass icon — teal tint */
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon) {
+  filter: invert(1) brightness(0.85) sepia(0.3) hue-rotate(120deg) saturate(1.5);
+}
+
+.map :global(.mapboxgl-ctrl-group.mapboxgl-ctrl-group button.mapboxgl-ctrl-compass:hover .mapboxgl-ctrl-icon) {
+  filter: invert(1) brightness(1) sepia(0.4) hue-rotate(120deg) saturate(2);
+}
+
+/* Ensure consistent spacing between Mapbox controls */
+.map :global(.mapboxgl-ctrl-top-left .mapboxgl-ctrl) {
+  margin: 10px 0 0 10px !important;
+}
+
+/* Center-on-Guam button — matches zoom control style */
+.centerBtn {
+  position: absolute;
+  top: 120px;
+  left: 10px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background 0.15s ease;
+}
+
+.centerBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.centerBtn:active {
+  background: rgba(69, 217, 168, 0.15);
+}
+
+.villageToggle {
+  top: 160px;
+  transition: background 0.15s ease, opacity 0.2s ease;
+}
+
+.map :global(.mapboxgl-ctrl-attrib) {
   background: rgba(10, 10, 10, 0.7) !important;
   color: var(--muted) !important;
   font-size: 10px !important;
@@ -172,8 +245,49 @@
   border-radius: var(--radius-sm) 0 0 0;
 }
 
-.map :global(.leaflet-control-attribution a) {
+.map :global(.mapboxgl-ctrl-attrib a) {
   color: var(--accent) !important;
+}
+
+/* Mapbox popup theming */
+.map :global(.mapboxgl-popup-content) {
+  background: #181818 !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm) !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  font-size: 13px;
+  font-family: var(--sans);
+}
+
+.map :global(.mapboxgl-popup-close-button) {
+  color: var(--muted) !important;
+  font-size: 16px;
+  padding: 2px 6px;
+  right: 2px;
+  top: 2px;
+}
+
+.map :global(.mapboxgl-popup-close-button:hover) {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+.map :global(.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip) {
+  border-top-color: #181818 !important;
+}
+
+.map :global(.mapboxgl-popup-anchor-top .mapboxgl-popup-tip) {
+  border-bottom-color: #181818 !important;
+}
+
+.map :global(.mapboxgl-popup-anchor-left .mapboxgl-popup-tip) {
+  border-right-color: #181818 !important;
+}
+
+.map :global(.mapboxgl-popup-anchor-right .mapboxgl-popup-tip) {
+  border-left-color: #181818 !important;
 }
 
 /* HUD overlay */
@@ -181,16 +295,24 @@
 .mapHud {
   position: absolute;
   top: 12px;
-  left: 52px;
+  left: 56px;
   display: flex;
   gap: 6px;
   z-index: 1000;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: stretch;
 }
 
 /* Extra layer for pills sitting on top of the map (readable over tiles) */
 .hudPill {
   background: #141414;
+  box-sizing: border-box;
+  line-height: 1;
+  white-space: nowrap;
+  /* Lock dimensions so active state never shifts layout */
+  padding: 5px 12px;
+  font-size: 12px;
+  height: auto;
 }
 
 /* ── Sidebar ── */
@@ -198,12 +320,12 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 340px;
   max-width: 420px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -215,7 +337,7 @@
 }
 
 .sidebar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 2px;
 }
 
@@ -229,7 +351,7 @@
 }
 
 .cardHeader {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -260,21 +382,23 @@
 }
 
 .cardBody {
-  padding: 12px 14px;
+  padding: 14px 16px;
 }
 
 /* ── Sections ── */
 
 .section {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .sectionHeader {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
-  margin-bottom: 6px;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 /* ── Typography ── */
@@ -324,9 +448,9 @@
   font-size: 11px;
   padding: 3px 10px;
   border-radius: var(--pill);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  color: #86efac;
-  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(69, 217, 168, 0.3);
+  color: var(--accent);
+  background: rgba(69, 217, 168, 0.12);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -397,7 +521,7 @@
 }
 
 .input:focus {
-  border-color: rgba(88, 177, 159, 0.5);
+  border-color: rgba(69, 217, 168, 0.5);
 }
 
 .input::placeholder {
@@ -485,7 +609,7 @@
 
 .dropdownItem {
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border: none;
   border-radius: 4px;
   background: transparent;
@@ -504,7 +628,7 @@
 
 .dropdownItemActive {
   color: var(--accent);
-  background: rgba(88, 177, 159, 0.08);
+  background: rgba(69, 217, 168, 0.08);
 }
 
 /* ── Checkbox ── */
@@ -538,8 +662,8 @@
 }
 
 .checkbox input[type="checkbox"]:checked {
-  background: rgba(88, 177, 159, 0.25);
-  border-color: rgba(88, 177, 159, 0.5);
+  background: rgba(69, 217, 168, 0.25);
+  border-color: rgba(69, 217, 168, 0.5);
 }
 
 .checkbox input[type="checkbox"]:checked::after {
@@ -598,8 +722,8 @@
   font-weight: 500;
   padding: 7px 16px;
   border-radius: var(--pill);
-  border: 1px solid rgba(88, 177, 159, 0.3);
-  background: rgba(88, 177, 159, 0.1);
+  border: 1px solid rgba(69, 217, 168, 0.3);
+  background: rgba(69, 217, 168, 0.12);
   color: var(--accent);
   text-decoration: none;
   cursor: pointer;
@@ -607,8 +731,8 @@
 }
 
 .btnPrimary:hover {
-  border-color: rgba(88, 177, 159, 0.5);
-  background: rgba(88, 177, 159, 0.18);
+  border-color: rgba(69, 217, 168, 0.5);
+  background: rgba(69, 217, 168, 0.2);
   text-decoration: none;
 }
 
@@ -629,10 +753,10 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 260px;
+  max-height: 340px;
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 .list::-webkit-scrollbar {
@@ -644,7 +768,7 @@
 }
 
 .list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 2px;
 }
 
@@ -656,7 +780,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
   color: var(--text);
   font: inherit;
@@ -677,7 +801,7 @@
 
 .itemTitle {
   font-weight: 500;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text);
 }
 
@@ -699,7 +823,8 @@
 .empty {
   font-size: 13px;
   color: var(--muted);
-  padding: 8px 0;
+  padding: 16px 0;
+  text-align: center;
 }
 
 /* ── Village browse headings ── */
@@ -724,20 +849,23 @@
 .detailTitle {
   font-weight: 600;
   font-size: 15px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .detailText {
-  margin-top: 8px;
+  margin-top: 10px;
+  margin-bottom: 12px;
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .footerNote {
-  margin-top: 14px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
 }
@@ -780,7 +908,7 @@
     padding: 5px 10px;
     font-size: 11px;
   }
-  .map :global(.leaflet-top.leaflet-left) {
+  .map :global(.mapboxgl-ctrl-top-left) {
     top: auto !important;
     left: auto !important;
     bottom: 10px !important;
