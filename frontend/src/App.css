@@ -1,5 +1,4 @@
-/* Fixed: Vite template constrained the app to a centered column:
-   #root { max-width: 1280px; margin: 0 auto; padding: 2rem; } :contentReference[oaicite:1]{index=1}
+/* Fixed: Vite template constrained the app to a centered column.
    This file is now safe for a full-screen layout.
 */
 
@@ -9,11 +8,3 @@
   padding: 0;
   text-align: initial;
 }
-
-/* (Optional) Keep these only if you still use them somewhere; otherwise they can be deleted safely. */
-.logo,
-.card,
-.read-the-docs {
-  display: none;
-}
-
