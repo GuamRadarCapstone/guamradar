@@ -1,8 +1,8 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo, memo } from "react";
 import type { Village, Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
 
-export function VillageBrowser({
+export const VillageBrowser = memo(function VillageBrowser({
   villages,
   selectedVillageId,
   villagePlaces,
@@ -37,9 +37,11 @@ export function VillageBrowser({
     return () => document.removeEventListener("mousedown", handler);
   }, [dropdownOpen, onDropdownToggle]);
 
-  const restaurants = villagePlaces.filter((p) => p.type === "RESTAURANT");
-  const attractions = villagePlaces.filter((p) => p.type === "ATTRACTION");
-  const hotels = villagePlaces.filter((p) => p.type === "HOTEL");
+  const restaurants = useMemo(() => villagePlaces.filter((p) => p.type === "RESTAURANT"), [villagePlaces]);
+  const attractions = useMemo(() => villagePlaces.filter((p) => p.type === "ATTRACTION"), [villagePlaces]);
+  const hotels = useMemo(() => villagePlaces.filter((p) => p.type === "HOTEL"), [villagePlaces]);
+
+  const sortedVillages = useMemo(() => [...villages].sort((a, b) => a.name.localeCompare(b.name)), [villages]);
 
   const selectedName = selectedVillageId
     ? villages.find((v) => v.id === selectedVillageId)?.name ?? "Select village"
@@ -80,7 +82,7 @@ export function VillageBrowser({
                 >
                   All villages
                 </button>
-                {[...villages].sort((a, b) => a.name.localeCompare(b.name)).map((v) => (
+                {sortedVillages.map((v) => (
                   <button
                     key={v.id}
                     className={`${styles.dropdownItem} ${selectedVillageId === v.id ? styles.dropdownItemActive : ""}`}
@@ -133,4 +135,4 @@ export function VillageBrowser({
       )}
     </div>
   );
-}
+});

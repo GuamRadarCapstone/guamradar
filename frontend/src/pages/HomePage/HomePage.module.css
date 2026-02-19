@@ -99,6 +99,7 @@
 
 .mapWrap {
   position: relative;
+  background: #212121;
 }
 
 
@@ -153,73 +154,6 @@
 .mapCtrlBtn:focus {
   outline: none;
   box-shadow: none;
-}
-
-.map :global(.mapboxgl-ctrl-attrib) {
-  background: rgba(10, 10, 10, 0.7) !important;
-  color: var(--muted) !important;
-  font-size: 10px !important;
-  backdrop-filter: blur(8px);
-  border-radius: var(--radius) !important;
-}
-
-.map :global(.mapboxgl-ctrl-attrib a) {
-  color: var(--accent) !important;
-}
-
-/* Attribution toggle button (the "i" circle on mobile) */
-.map :global(.mapboxgl-ctrl-attrib-button) {
-  background-color: transparent !important;
-  filter: invert(1);
-  outline: none !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-.map :global(.mapboxgl-ctrl-attrib-button:focus) {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Mapbox popup theming */
-.map :global(.mapboxgl-popup-content) {
-  background: #181818 !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm) !important;
-  padding: 10px 14px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
-  font-size: 13px;
-  font-family: var(--sans);
-}
-
-.map :global(.mapboxgl-popup-close-button) {
-  color: var(--muted) !important;
-  font-size: 16px;
-  padding: 2px 6px;
-  right: 2px;
-  top: 2px;
-}
-
-.map :global(.mapboxgl-popup-close-button:hover) {
-  color: var(--text) !important;
-  background: transparent !important;
-}
-
-.map :global(.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip) {
-  border-top-color: #181818 !important;
-}
-
-.map :global(.mapboxgl-popup-anchor-top .mapboxgl-popup-tip) {
-  border-bottom-color: #181818 !important;
-}
-
-.map :global(.mapboxgl-popup-anchor-left .mapboxgl-popup-tip) {
-  border-right-color: #181818 !important;
-}
-
-.map :global(.mapboxgl-popup-anchor-right .mapboxgl-popup-tip) {
-  border-left-color: #181818 !important;
 }
 
 /* HUD overlay */
@@ -853,9 +787,4 @@
     right: 10px;
   }
 
-  /* Attribution — compact and out of the way */
-  .map :global(.mapboxgl-ctrl-attrib) {
-    font-size: 9px !important;
-    max-width: 200px;
-  }
 }

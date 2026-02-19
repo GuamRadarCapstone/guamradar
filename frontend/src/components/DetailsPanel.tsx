@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Place, EventItem } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
 
@@ -6,7 +7,7 @@ type SelectedDetail =
   | { kind: "EVENT"; e: EventItem }
   | null;
 
-export function DetailsPanel({
+export const DetailsPanel = memo(function DetailsPanel({
   selectedDetail,
   isOpen,
   onToggle,
@@ -77,4 +78,4 @@ export function DetailsPanel({
       )}
     </div>
   );
-}
+});
