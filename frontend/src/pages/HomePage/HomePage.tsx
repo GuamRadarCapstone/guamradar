@@ -19,17 +19,12 @@ import { DetailsPanel } from "../../components/DetailsPanel";
 import { VillageBrowser } from "../../components/VillageBrowser";
 
 import { ringBBoxExport as ringBBox } from "../../lib/geo";
+import { DEFAULT_CENTER, GUAM_BOUNDS, GUAM_BOUNDS_PADDING } from "../../lib/constants";
 import { circlePolygon } from "../../lib/math";
 import { placeEmoji, eventEmoji } from "../../lib/ui";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
 
-const DEFAULT_CENTER = { lng: 144.78, lat: 13.45 };
-const GUAM_BOUNDS: [[number, number], [number, number]] = [
-  [144.62, 13.23],
-  [144.96, 13.65],
-];
-const GUAM_BOUNDS_PADDING = 20;
 
 type Category = "ALL" | "ATTRACTION" | "RESTAURANT" | "HOTEL";
 type Selected = { kind: "PLACE"; id: string } | { kind: "EVENT"; id: string } | null;
@@ -58,6 +53,7 @@ export function HomePage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const mapRef = useRef<MapRef>(null);
+  const roadLabelsShown = useRef(false);
 
   const { userLoc, userAcc, locateMe } = useUserLocation(villages, (id) => {
     setSelectedVillageId(id);
@@ -75,15 +71,20 @@ export function HomePage() {
 
   /* ---- Fit bounds when village selected ---- */
   useEffect(() => {
-    if (!selectedVillageId || !mapRef.current) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    if (!selectedVillageId) return;
+
     const v = villages.find((x) => x.id === selectedVillageId);
     if (!v) return;
     const bb = ringBBox(v.polygon);
-    mapRef.current.fitBounds(
+    mapRef.current!.fitBounds(
       [[bb.minLng, bb.minLat], [bb.maxLng, bb.maxLat]],
-      { padding: 30, maxZoom: 13 },
+      { padding: 30, maxZoom: 13, duration: 500, linear: true },
     );
   }, [selectedVillageId, villages]);
+
 
   /* ---- Fly to selected place/event ---- */
   const focus = useMemo(() => {
@@ -247,15 +248,6 @@ export function HomePage() {
     if (map.getLayer("village-outline")) map.setLayoutProperty("village-outline", "visibility", vis);
     if (map.getLayer("village-label")) map.setLayoutProperty("village-label", "visibility", vis);
 
-    try {
-      const showLabels = !showVillages;
-      (map as any).setConfigProperty("basemap", "showPlaceLabels", showLabels);
-      (map as any).setConfigProperty("basemap", "showPointOfInterestLabels", showLabels);
-      (map as any).setConfigProperty("basemap", "showRoadLabels", showLabels);
-      (map as any).setConfigProperty("basemap", "showTransitLabels", showLabels);
-    } catch {
-      // Standard style config not available
-    }
   }, [mapReady, villageGeoJson, villageLabelGeoJson, showVillages]);
 
   /* ---- Map event handlers ---- */
@@ -329,7 +321,7 @@ export function HomePage() {
                 pitch: 0,
                 bearing: 0,
               }}
-              mapStyle="mapbox://styles/mapbox/streets-v12"
+              mapStyle="mapbox://styles/mapbox/standard"
               style={{
                 width: "100%",
                 height: "100%",
@@ -344,18 +336,31 @@ export function HomePage() {
               cursor={cursor}
               onLoad={(e) => {
                 const map = e.target;
-                // Hide large place labels irrelevant when viewing Guam
-                [
-                  "state-label",
-                  "country-label",
-                  "continent-label",
-                  "natural-point-label",
-                  "natural-line-label",
-                  "road-number-shield",
-                  "road-exit-shield",
-                ].forEach((id) => {
-                  if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+                map.setConfigProperty("basemap", "lightPreset", "day");
+                map.setConfigProperty("basemap", "showRoadLabels", false);
+                map.setConfigProperty("basemap", "showTransitLabels", false);
+                // Road labels: show when zoomed in OR when a village is selected (prevents
+                // labels flickering off during village-to-village transitions)
+                map.on("zoom", () => {
+                  const show = map.getZoom() >= 13;
+                  if (show !== roadLabelsShown.current) {
+                    roadLabelsShown.current = show;
+                    (map as any).setConfigProperty("basemap", "showRoadLabels", show);
+                  }
                 });
+                // Mariana Islands: hide once tiles are loaded, skip if map is moving
+                const hideMarianaIslands = () => {
+                  if (map.isMoving() || map.isZooming() || map.isRotating()) return;
+                  const canvas = map.getCanvas();
+                  const all = map.queryRenderedFeatures([[0, 0], [canvas.width, canvas.height]]);
+                  all.forEach((f: any) => {
+                    if (f.properties?.name === "Mariana Islands" || f.properties?.name === "Northern Mariana Islands") {
+                      map.setFeatureState(f, { hide: true });
+                    }
+                  });
+                };
+                map.on("idle", hideMarianaIslands);
+
                 map.fitBounds(GUAM_BOUNDS, { padding: GUAM_BOUNDS_PADDING, duration: 0 });
                 map.once("idle", () => setMapReady(true));
               }}

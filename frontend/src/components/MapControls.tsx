@@ -1,12 +1,7 @@
 import type { MapRef } from "react-map-gl/mapbox";
 import type { RefObject } from "react";
 import styles from "../pages/HomePage/HomePage.module.css";
-
-const GUAM_BOUNDS: [[number, number], [number, number]] = [
-  [144.62, 13.23],
-  [144.96, 13.65],
-];
-const GUAM_BOUNDS_PADDING = 20;
+import { GUAM_BOUNDS, GUAM_BOUNDS_PADDING } from "../lib/constants";
 
 export function MapControls({
   mapRef,
