@@ -642,7 +642,7 @@ export function HomePage() {
   // reads selectedVillageId immediately, but heavy sidebar computations
   // run off deferredVillageId which updates one frame later.
   const [deferredVillageId, setDeferredVillageId] = useState<string | null>(null);
-  const deferTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const deferTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const { userLoc, userAcc, locateMe } = useUserLocation(villages, (id) => {
     setSelectedVillageId(id);
