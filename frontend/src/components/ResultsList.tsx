@@ -1,10 +1,11 @@
+import { memo } from "react";
 import type { ResultItem } from "../hooks/useFilteredResults";
 import { haversineKm } from "../lib/math";
 import styles from "../pages/HomePage/HomePage.module.css";
 
 type UserLoc = { lat: number; lng: number } | null;
 
-export function ResultsList({
+export const ResultsList = memo(function ResultsList({
   results,
   userLoc,
   onSelect,
@@ -62,4 +63,4 @@ export function ResultsList({
       )}
     </div>
   );
-}
+});

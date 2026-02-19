@@ -4,7 +4,7 @@
 
 **Discover Guam, village by village.**
 
-A map-first tourism platform that helps locals and visitors explore Guam's villages, restaurants, attractions, hotels, and community events — all on an interactive dark-mode globe.
+A map-first tourism platform that helps locals and visitors explore Guam's villages, restaurants, attractions, hotels, and community events — all on an interactive dark-mode map.
 
 [guamradar.com](https://guamradar.com)
 
@@ -14,17 +14,17 @@ A map-first tourism platform that helps locals and visitors explore Guam's villa
 
 ## About
 
-GuamRadar puts Guam's 19 villages front and center. Click a village to see what's there — restaurants, beaches, hotels, cultural sites, and upcoming events. Use your location to find what's nearby, filter by category, or browse the whole island from a 3D globe view.
+GuamRadar puts Guam's 19 villages front and center. Click a village to see what's there — restaurants, beaches, hotels, cultural sites, and upcoming events. Use your location to find what's nearby, filter by category, or browse the whole island.
 
 Built as a capstone project at the **University of Guam**.
 
 ## Features
 
 **Map**
-- Interactive 3D globe with Mapbox GL JS (dark mode, night lighting)
+- Interactive map powered by Google Maps (dark theme)
 - Village boundary overlays — click any village to explore it
 - Toggle village borders, POI markers, event pins, and live hotspot zones
-- Fly-to navigation when selecting villages or places
+- Dynamic zoom that adapts to any screen size (mobile, tablet, desktop)
 - Geolocation with GPS accuracy radius
 
 **Discovery**
@@ -53,7 +53,7 @@ Built as a capstone project at the **University of Guam**.
 | | Technology |
 |---|---|
 | **Frontend** | React 19, TypeScript, Vite |
-| **Map** | Mapbox GL JS, react-map-gl v8 |
+| **Map** | Google Maps, @vis.gl/react-google-maps |
 | **Backend** | Java 21, Spring Boot 4 |
 | **Database** | Supabase (PostgreSQL + PostGIS) |
 | **Hosting** | Vercel (frontend), Railway (backend) |
@@ -64,7 +64,7 @@ Built as a capstone project at the **University of Guam**.
 
 - [Node.js](https://nodejs.org/) (LTS)
 - [Java JDK 21](https://adoptium.net/)
-- [Mapbox account](https://account.mapbox.com/auth/signup/) (free tier)
+- [Google Cloud](https://console.cloud.google.com/) project with Maps JavaScript API enabled
 
 ### Run locally
 
@@ -77,7 +77,7 @@ npm run dev
 
 Create `frontend/.env`:
 ```
-VITE_MAPBOX_TOKEN=pk.your_token_here
+VITE_GOOGLE_MAPS_KEY=your_key_here
 ```
 
 ```bash
@@ -94,6 +94,10 @@ The frontend runs at `http://localhost:5173` and the API at `http://localhost:80
 frontend/       React + Vite app
   src/
     pages/      Page components (HomePage)
+    components/ Reusable UI (ResultsList, DetailsPanel, VillageBrowser)
+    hooks/      Custom React hooks (useVillages, useUserLocation, etc.)
+    lib/        Utilities (geo, math, constants, ui)
+    types/      TypeScript type definitions
     main.tsx    App entry point
   public/       Static assets (GeoJSON, images)
 backend/        Spring Boot API

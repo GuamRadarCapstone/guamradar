@@ -1,6 +1,6 @@
-export const DEFAULT_CENTER = { lng: 144.78, lat: 13.45 };
+export const DEFAULT_CENTER = { lng: 144.78, lat: 13.44 };
 export const GUAM_BOUNDS: [[number, number], [number, number]] = [
-  [144.62, 13.23],
-  [144.96, 13.65],
+  [144.635, 13.235],
+  [144.955, 13.655],
 ];
-export const GUAM_BOUNDS_PADDING = 20;
+export const GUAM_BOUNDS_PADDING = 10;
