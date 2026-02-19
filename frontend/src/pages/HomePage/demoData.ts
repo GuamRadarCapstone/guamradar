@@ -1,47 +1,7 @@
-export type PlaceType = "ATTRACTION" | "RESTAURANT" | "HOTEL";
-export type EventStatus = "VERIFIED" | "PENDING";
+// Types now live in src/types/data.ts — re-exported here for any legacy imports
+export type { PlaceType, EventStatus, Village, Place, EventItem, LiveHotspot } from "../../types/data";
 
-export type Village = {
-  id: string;
-  name: string;
-  /** Outer ring in GeoJSON order: [lng, lat][] */
-  polygon: [number, number][];
-};
-
-export type Place = {
-  id: string;
-  villageId: string;
-  type: PlaceType;
-  name: string;
-  lat: number;
-  lng: number;
-  hours: string;
-  price: "$" | "$$" | "$$$";
-  tags: string[];
-  source: string;
-  description?: string;
-};
-
-export type EventItem = {
-  id: string;
-  status: EventStatus;
-  villageId: string;
-  title: string;
-  lat: number;
-  lng: number;
-  when?: string;
-  source: string;
-  description?: string;
-};
-
-export type LiveHotspot = {
-  id: string;
-  lat: number;
-  lng: number;
-  count: number;
-  label: string;
-};
-
+import type { Place, EventItem, LiveHotspot } from "../../types/data";
 
 export const PLACES: Place[] = [
   {
@@ -61,7 +21,7 @@ export const PLACES: Place[] = [
     id: "p_den_tumon",
     villageId: "tumon",
     type: "RESTAURANT",
-    name: "Denny’s (Tumon) — Example",
+    name: "Denny's (Tumon) — Example",
     lat: 13.5147,
     lng: 144.8092,
     hours: "24/7 (example)",
@@ -89,5 +49,3 @@ export const EVENTS: EventItem[] = [
 export const LIVE: LiveHotspot[] = [
   { id: "live_tumon", lat: 13.5152, lng: 144.8090, count: 42, label: "Tumon hot spot" },
 ];
-
-
