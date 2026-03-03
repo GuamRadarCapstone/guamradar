@@ -4,7 +4,7 @@
 
 **Discover Guam, village by village.**
 
-A map-first tourism platform that helps locals and visitors explore Guam's villages, restaurants, attractions, hotels, and community events — all on an interactive dark-mode map.
+A map-first tourism platform that helps locals and visitors explore Guam's villages, restaurants, attractions, hotels, and community events — all on an interactive map.
 
 [guamradar.com](https://guamradar.com)
 
@@ -15,38 +15,6 @@ A map-first tourism platform that helps locals and visitors explore Guam's villa
 ## About
 
 GuamRadar puts Guam's 19 villages front and center. Click a village to see what's there — restaurants, beaches, hotels, cultural sites, and upcoming events. Use your location to find what's nearby, filter by category, or browse the whole island.
-
-Built as a capstone project at the **University of Guam**.
-
-## Features
-
-**Map**
-- Interactive map powered by Google Maps (dark theme)
-- Village boundary overlays — click any village to explore it
-- Toggle village borders, POI markers, event pins, and live hotspot zones
-- Dynamic zoom that adapts to any screen size (mobile, tablet, desktop)
-- Geolocation with GPS accuracy radius
-
-**Discovery**
-- Browse POIs by category: Attractions, Restaurants, Hotels
-- Search across all places and events
-- Filter by "Open Now" and "Near Me"
-- Distance calculations from your location
-- Event listings with verified/pending status
-
-**Interface**
-- Responsive layout — works on desktop and mobile
-- Collapsible sidebar panels
-- Village browser with dropdown navigation
-
-## Roadmap
-
-- [ ] Live database — replace demo data with real Guam POIs from Supabase
-- [ ] Google Places API integration for richer POI data
-- [ ] AI-powered itinerary planner
-- [ ] User-submitted events and reviews
-- [ ] Admin dashboard for content management
-- [ ] PWA support (installable, offline-capable)
 
 ## Tech Stack
 
