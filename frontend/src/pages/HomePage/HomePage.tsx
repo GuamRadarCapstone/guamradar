@@ -87,26 +87,13 @@ function markerIcon(url: string, size: number) {
   return icon;
 }
 
-/* ─── Dark map style ─── */
-const DARK_STYLE: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#212121" }] },
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
-  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
-  { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
-  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
-  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
-  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
-  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
-  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] },
+/* ─── Clean basemap for village-border focus mode (no labels/points) ─── */
+const BORDER_FOCUS_MAP_STYLE: google.maps.MapTypeStyle[] = [
+  { featureType: "all", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "road", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative", stylers: [{ visibility: "off" }] },
 ];
 
 /* ─── Village overlay (rendered inside <Map>) ─── */
@@ -122,18 +109,21 @@ function VillageOverlay({
   onVillageClick: (villageId: string, lat: number, lng: number) => void;
 }) {
   const map = useMap();
-  const dataLayerRef = useRef<google.maps.Data | null>(null);
+  const haloLayerRef = useRef<google.maps.Data | null>(null);
+  const borderLayerRef = useRef<google.maps.Data | null>(null);
   const clickCbRef = useRef(onVillageClick);
   clickCbRef.current = onVillageClick;
   const loadedVillagesRef = useRef<string>(""); // track which village set is loaded
 
-  // One-time: create data layer + click listener
+  // One-time: create layered data overlays + click listener
   useEffect(() => {
     if (!map) return;
-    if (dataLayerRef.current) return;
+    if (haloLayerRef.current && borderLayerRef.current) return;
 
-    dataLayerRef.current = new google.maps.Data({ map });
-    dataLayerRef.current.addListener("click", (e: google.maps.Data.MouseEvent) => {
+    haloLayerRef.current = new google.maps.Data({ map });
+    borderLayerRef.current = new google.maps.Data({ map });
+
+    borderLayerRef.current.addListener("click", (e: google.maps.Data.MouseEvent) => {
       const id = e.feature.getProperty("id") as string;
       const geo = e.feature.getGeometry();
       if (geo && geo.getType() === "Polygon") {
@@ -147,24 +137,32 @@ function VillageOverlay({
 
   // Add/remove features only when villages data or visibility changes
   useEffect(() => {
-    const layer = dataLayerRef.current;
-    if (!layer) return;
+    const haloLayer = haloLayerRef.current;
+    const borderLayer = borderLayerRef.current;
+    if (!haloLayer || !borderLayer) return;
 
     // Build a fingerprint to detect actual data changes
     const key = showVillages ? villages.map((v) => v.id).join(",") : "";
     if (key === loadedVillagesRef.current) return;
     loadedVillagesRef.current = key;
 
-    layer.forEach((f) => layer.remove(f));
+    haloLayer.forEach((f) => haloLayer.remove(f));
+    borderLayer.forEach((f) => borderLayer.remove(f));
 
     if (!showVillages) return;
 
     villages.forEach((v) => {
       const coords = v.polygon.map(([lng, lat]) => ({ lat, lng }));
-      layer.add(
+      haloLayer.add(
         new google.maps.Data.Feature({
           geometry: new google.maps.Data.Polygon([coords]),
-          properties: { id: v.id, name: v.name },
+          properties: { id: v.id },
+        }),
+      );
+      borderLayer.add(
+        new google.maps.Data.Feature({
+          geometry: new google.maps.Data.Polygon([coords]),
+          properties: { id: v.id },
         }),
       );
     });
@@ -172,17 +170,34 @@ function VillageOverlay({
 
   // Update style only — cheap operation, no geometry rebuild
   useEffect(() => {
-    const layer = dataLayerRef.current;
-    if (!layer) return;
+    const haloLayer = haloLayerRef.current;
+    const borderLayer = borderLayerRef.current;
+    if (!haloLayer || !borderLayer) return;
 
-    layer.setStyle((feature) => {
+    // Soft halo underlay makes polygon edges feel less harsh.
+    haloLayer.setStyle((feature) => {
       const id = feature.getProperty("id");
       const isSelected = id === selectedVillageId;
       return {
-        fillColor: "#34d399",
-        fillOpacity: isSelected ? 0.25 : 0,
-        strokeColor: isSelected ? "#34d399" : "rgba(0,0,0,0.35)",
-        strokeWeight: isSelected ? 2.5 : 1.25,
+        fillOpacity: 0,
+        strokeColor: isSelected ? "rgba(244,248,252,0.75)" : "rgba(237,244,250,0.6)",
+        strokeOpacity: isSelected ? 0.58 : 0.42,
+        strokeWeight: isSelected ? 4.8 : 3.8,
+        zIndex: isSelected ? 4 : 2,
+        clickable: false,
+      };
+    });
+
+    borderLayer.setStyle((feature) => {
+      const id = feature.getProperty("id");
+      const isSelected = id === selectedVillageId;
+      return {
+        fillColor: "#eef3f6",
+        fillOpacity: isSelected ? 0.1 : 0.015,
+        strokeColor: isSelected ? "#718aa3" : "#8ca3b8",
+        strokeOpacity: isSelected ? 0.9 : 0.68,
+        strokeWeight: isSelected ? 2.0 : 1.35,
+        zIndex: isSelected ? 6 : 5,
         clickable: true,
         cursor: "pointer",
       };
@@ -422,11 +437,6 @@ function MapControls({ showVillages, onToggleVillages }: { showVillages: boolean
       <button className={styles.mapCtrlBtn} title="Zoom out" onClick={() => map?.setZoom((map.getZoom() ?? 10) - 1)}>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round">
           <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
-      <button className={styles.mapCtrlBtn} title="Reset north" onClick={() => map?.setHeading(0)}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="rgba(69,217,168,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12,2 20,22 12,17 4,22" />
         </svg>
       </button>
       <button
@@ -725,6 +735,11 @@ export function HomePage() {
   const toggleDropdown = useCallback(() => setDropdownOpen((o) => !o), []);
   const toggleShowVillages = useCallback(() => setShowVillages((v) => !v), []);
   const resetToAll = useCallback(() => selectVillage(null), [selectVillage]);
+  const borderFocusMode = false;
+
+  useEffect(() => {
+    if (borderFocusMode) setPopupInfo(null);
+  }, [borderFocusMode]);
 
   return (
     <div className={styles.page}>
@@ -753,11 +768,12 @@ export function HomePage() {
             <GoogleMap
               defaultCenter={{ lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng }}
               defaultZoom={10}
+              mapTypeId="roadmap"
+              colorScheme="LIGHT"
               gestureHandling="greedy"
               disableDefaultUI={true}
-              backgroundColor="#212121"
+              styles={borderFocusMode ? BORDER_FOCUS_MAP_STYLE : null}
               style={{ width: "100%", height: "100%" }}
-              styles={DARK_STYLE}
             >
               <FitBoundsOnLoad />
               <FitVillageBounds villages={villages} selectedVillageId={selectedVillageId} />
@@ -774,10 +790,10 @@ export function HomePage() {
               />
 
               {/* User location */}
-              {userLoc && userAcc != null && (
+              {!borderFocusMode && userLoc && userAcc != null && (
                 <UserLocationCircle lat={userLoc.lat} lng={userLoc.lng} accuracy={userAcc} />
               )}
-              {userLoc && (
+              {!borderFocusMode && userLoc && (
                 <Marker
                   position={{ lat: userLoc.lat, lng: userLoc.lng }}
                   icon={markerIcon(dotIcon("#45d9a8", 14, "white"), 14)}
@@ -786,7 +802,7 @@ export function HomePage() {
               )}
 
               {/* POI markers */}
-              {showPOI && filteredPlaces.map((p) => (
+              {!borderFocusMode && showPOI && filteredPlaces.map((p) => (
                 <Marker
                   key={p.id}
                   position={{ lat: p.lat, lng: p.lng }}
@@ -796,7 +812,7 @@ export function HomePage() {
               ))}
 
               {/* Event markers */}
-              {showEvents && filteredEvents.map((ev) => (
+              {!borderFocusMode && showEvents && filteredEvents.map((ev) => (
                 <Marker
                   key={ev.id}
                   position={{ lat: ev.lat, lng: ev.lng }}
@@ -806,8 +822,8 @@ export function HomePage() {
               ))}
 
               {/* Live hotspot zones + markers */}
-              {showLive && <LiveCircles hotspots={LIVE} />}
-              {showLive && LIVE.map((x) => (
+              {!borderFocusMode && showLive && <LiveCircles hotspots={LIVE} />}
+              {!borderFocusMode && showLive && LIVE.map((x) => (
                 <Marker
                   key={x.id}
                   position={{ lat: x.lat, lng: x.lng }}
@@ -816,7 +832,7 @@ export function HomePage() {
                 />
               ))}
 
-              {popupInfo && <MapPopup info={popupInfo} onClose={() => setPopupInfo(null)} />}
+              {!borderFocusMode && popupInfo && <MapPopup info={popupInfo} onClose={() => setPopupInfo(null)} />}
             </GoogleMap>
           </APIProvider>
         </div>
@@ -824,8 +840,11 @@ export function HomePage() {
         {/* SIDEBAR */}
         <div className={styles.sidebar}>
           <div className={styles.sidebarHeader}>
-            <div className={styles.brand}>
-              GuamRadar <span className={styles.badgeWip}>WIP</span>
+            <div className={styles.sidebarTitleBlock}>
+              <div className={styles.brand}>
+                GuamRadar <span className={styles.badgeWip}>WIP</span>
+              </div>
+              <div className={styles.sidebarSubtitle}>Discover Guam village by village</div>
             </div>
             <button
               className={`${styles.pill} ${musicOn ? styles.pillActive : ""}`}
@@ -836,7 +855,7 @@ export function HomePage() {
             </button>
           </div>
 
-          <div className={styles.card}>
+          <div className={`${styles.card} ${styles.primaryCard}`}>
             <div className={styles.cardHeader}>
               <div>
                 <div className={styles.tinyMuted}>Selected Village</div>
