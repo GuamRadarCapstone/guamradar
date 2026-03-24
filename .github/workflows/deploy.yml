@@ -34,7 +34,17 @@ jobs:
 
       - name: Build
         working-directory: frontend
-        run: npm run build
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "SUPABASE URL MISSING"
+            exit 1
+          fi
+          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "SUPABASE ANON KEY MISSING"
+            exit 1
+          fi
+          echo "Supabase secrets found"
+          npm run build
         env:
           VITE_GOOGLE_MAPS_KEY: ${{ secrets.VITE_GOOGLE_MAPS_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
