@@ -36,8 +36,10 @@ export default function AuthCard({ onSignedIn }: Props) {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: window.location.origin + window.location.pathname,
-        },
+        emailRedirectTo:
+            window.location.hostname === "localhost"
+    ?       "http://localhost:5173"
+    :       "https://guamradar.com",        },
       });
 
       if (error) {
