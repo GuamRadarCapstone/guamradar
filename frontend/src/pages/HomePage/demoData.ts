@@ -10,6 +10,9 @@ export type PoiCategory =
   | "HOSPITAL"
   | "EVENT";
 
+  type PlaceCategory = Exclude<PoiCategory, "EVENT">;
+
+
 export type DayCode =
   | "sun"
   | "mon"
@@ -28,6 +31,7 @@ export type HoursEntry =
       close: string;
     };
 
+
 export type Poi = {
   id: string;
   name: string;
@@ -35,8 +39,8 @@ export type Poi = {
   villageId: string;
   lat: number;
   lng: number;
-  category: PoiCategory;
-  type: PoiCategory;
+  category: PlaceCategory;
+  type: PlaceCategory;
   source: string;
   hoursText: string;
   description: string;
