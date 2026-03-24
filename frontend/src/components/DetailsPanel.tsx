@@ -11,10 +11,16 @@ export const DetailsPanel = memo(function DetailsPanel({
   selectedDetail,
   isOpen,
   onToggle,
+  canSave,
+  isSaved,
+  onToggleSave,
 }: {
   selectedDetail: SelectedDetail;
   isOpen: boolean;
   onToggle: () => void;
+  canSave: boolean;
+  isSaved: boolean;
+  onToggleSave: () => void;
 }) {
   return (
     <div className={`${styles.card} ${!isOpen ? styles.cardCollapsed : ""}`}>
@@ -27,14 +33,26 @@ export const DetailsPanel = memo(function DetailsPanel({
             </div>
           )}
           <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
         </div>
       </div>
 
-      <div className={`${styles.collapsible} ${isOpen ? styles.collapsibleOpen : ""}`} aria-hidden={!isOpen}>
+      <div
+        className={`${styles.collapsible} ${isOpen ? styles.collapsibleOpen : ""}`}
+        aria-hidden={!isOpen}
+      >
         <div className={styles.collapsibleInner}>
           <div className={styles.cardBody}>
             {!selectedDetail ? (
@@ -42,9 +60,11 @@ export const DetailsPanel = memo(function DetailsPanel({
             ) : selectedDetail.kind === "PLACE" ? (
               <>
                 <div className={styles.detailTitle}>{selectedDetail.p.name}</div>
-                <div className={styles.muted}>{selectedDetail.p.source} • {selectedDetail.p.price}</div>
+                <div className={styles.muted}>
+                  {selectedDetail.p.source} • {selectedDetail.p.price}
+                </div>
                 <div className={styles.detailText}>{selectedDetail.p.description ?? ""}</div>
-                <div className={styles.row}>
+                <div className={styles.row} style={{ gap: 8, flexWrap: "wrap" }}>
                   <a
                     className={styles.btnPrimary}
                     target="_blank"
@@ -53,6 +73,12 @@ export const DetailsPanel = memo(function DetailsPanel({
                   >
                     Directions
                   </a>
+
+                  {canSave && (
+                    <button className={styles.btn} onClick={onToggleSave}>
+                      {isSaved ? "Remove saved POI" : "Save POI"}
+                    </button>
+                  )}
                 </div>
               </>
             ) : (
@@ -73,7 +99,7 @@ export const DetailsPanel = memo(function DetailsPanel({
               </>
             )}
             <div className={styles.footerNote}>
-              AI Planner + Admin tools: <b>coming soon</b> (keep front page clean for now).
+              Saved POIs, itinerary notes, sharing, and map highlighting enabled.
             </div>
           </div>
         </div>

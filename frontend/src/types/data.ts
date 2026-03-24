@@ -1,5 +1,26 @@
-export type PlaceType = "ATTRACTION" | "RESTAURANT" | "HOTEL";
+export type PlaceType =
+  | "ATTRACTION"
+  | "RESTAURANT"
+  | "HOTEL"
+  | "SHOPPING"
+  | "SERVICE"
+  | "SCHOOL"
+  | "TRANSPORT"
+  | "BASE"
+  | "HOSPITAL";
+
 export type EventStatus = "VERIFIED" | "PENDING";
+
+export type DayCode = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
+
+export type PlaceHoursEntry =
+  | { type: "24_7" }
+  | {
+      type: "custom";
+      days: DayCode[];
+      open: string;
+      close: string;
+    };
 
 export type Village = {
   id: string;
@@ -12,13 +33,17 @@ export type Place = {
   id: string;
   villageId: string;
   type: PlaceType;
+  category: PlaceType;
   name: string;
+  village?: string;
   lat: number;
   lng: number;
   hours: string;
-  price: "$" | "$$" | "$$$";
+  price?: "$" | "$$" | "$$$";
   tags: string[];
   source: string;
+  verified?: boolean;
+  rawHours?: PlaceHoursEntry[];
   description?: string;
 };
 

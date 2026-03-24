@@ -2,6 +2,13 @@ import { memo } from "react";
 import type { ResultItem } from "../hooks/useFilteredResults";
 import { haversineKm } from "../lib/math";
 import styles from "../pages/HomePage/HomePage.module.css";
+import {
+  getCategoryBg,
+  getCategoryColor,
+  getCategoryIcon,
+  getCategoryLabel,
+  getPoiOpenText,
+} from "../pages/HomePage/demoData";
 
 type UserLoc = { lat: number; lng: number } | null;
 
@@ -20,42 +27,81 @@ export const ResultsList = memo(function ResultsList({
         <div className={styles.empty}>No results. Try resetting filters.</div>
       ) : (
         results.map((r) => {
-          const title = r.kind === "PLACE" ? r.data.name : r.data.title;
-          const meta =
-            r.kind === "PLACE"
-              ? `${r.data.type} • ${r.data.source}`
-              : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${r.data.source}`;
+          const isPlace = r.kind === "PLACE";
+          const title = isPlace ? r.data.name : r.data.title;
 
           const dist = userLoc
             ? haversineKm(userLoc.lat, userLoc.lng, r.data.lat, r.data.lng)
             : null;
+
+          const rawCategory = isPlace ? r.data.type ?? "ATTRACTION" : "EVENT";
+
+          const icon = getCategoryIcon(rawCategory as any);
+          const color = getCategoryColor(rawCategory as any);
+          const bg = getCategoryBg(rawCategory as any);
+          const label = getCategoryLabel(rawCategory as any);
+
+          const meta = isPlace
+            ? `${r.data.source ?? "Demo Data"}`
+            : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${r.data.source ?? "Demo Data"}`;
+
+          let openText = "Hours unavailable";
+          if (isPlace) {
+            try {
+              openText = getPoiOpenText(r.data as any);            } catch {
+              openText = (r.data as any).hours ?? "Hours unavailable";
+            }
+          }
 
           return (
             <button
               key={`${r.kind}:${r.data.id}`}
               className={styles.item}
               onClick={() => onSelect(r.kind, r.data.id)}
+              style={{ border: `1px solid ${color}` }}
             >
               <div className={styles.itemTop}>
-                <div className={styles.itemTitle}>{title}</div>
+                <div className={styles.itemTitle}>
+                  <span style={{ marginRight: 8 }}>{icon}</span>
+                  {title}
+                </div>
+
                 <div
-                  className={
-                    r.kind === "EVENT"
-                      ? r.data.status === "VERIFIED"
-                        ? styles.badgeGood
-                        : styles.badgeWarn
-                      : styles.badge
-                  }
+                  className={styles.badge}
+                  style={{
+                    background: bg,
+                    color,
+                    border: `1px solid ${color}`,
+                  }}
                 >
-                  {r.kind === "PLACE" ? r.data.type : r.data.status}
+                  {isPlace ? label : ((r.data as any).status ?? "EVENT")}
                 </div>
               </div>
+
               <div className={styles.itemDesc}>{meta}</div>
+
               <div className={styles.itemMeta}>
                 {dist != null && <span>📍 {dist.toFixed(1)} km</span>}
-                {r.kind === "PLACE"
-                  ? <span>⏰ {r.data.hours}</span>
-                  : <span>🗓️ {r.data.when ?? ""}</span>}
+
+                {isPlace ? (
+                  <span
+                    style={{
+                      color:
+                        openText === "Open now"
+                          ? "#22c55e"
+                          : openText === "Closed now"
+                            ? "#ef4444"
+                            : undefined,
+                      fontWeight: 700,
+                    }}
+                  >
+                    ⏰ {openText}
+                  </span>
+                ) : (
+                  <span>🗓️ {(r.data as any).when ?? ""}</span>
+                )}
+
+                {isPlace && (r.data as any).verified && <span>✅ Verified</span>}
               </div>
             </button>
           );
