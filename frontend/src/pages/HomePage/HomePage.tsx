@@ -346,12 +346,6 @@ function MapRefCapture({ mapRef }: { mapRef: React.MutableRefObject<google.maps.
   return null;
 }
 
-const GUAM_LATLNG_BOUNDS = {
-  south: GUAM_BOUNDS[0][1],
-  west: GUAM_BOUNDS[0][0],
-  north: GUAM_BOUNDS[1][1],
-  east: GUAM_BOUNDS[1][0],
-};
 
 function guamZoomForSize(h: number, w: number): number {
   const latSpan = GUAM_BOUNDS[1][1] - GUAM_BOUNDS[0][1];
@@ -512,8 +506,6 @@ function MapControls({
   onToggleSettings: () => void;
   settingsPopup: React.ReactNode;
 }) {
-  const map = useMap();
-
   return (
     <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, width: 38 }}>
       <div className={styles.mapControls}>
@@ -817,7 +809,7 @@ export function HomePage() {
 
   const [showPOI, setShowPOI] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
-  const [showLive, setShowLive] = useState(false);
+  const [showLive] = useState(false);
   const [showVillages, setShowVillages] = useState(true);
 
   const [selected, setSelected] = useState<Selected>(null);
