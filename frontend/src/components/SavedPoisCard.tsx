@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
 
@@ -13,47 +13,60 @@ export function SavedPoisCard({
   onSelectPlace: (id: string) => void;
   onRemoveSaved: (id: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const savedPlaces = useMemo(() => {
     const set = new Set(savedPoiIds);
     return allPlaces.filter((p) => set.has(p.id));
   }, [savedPoiIds, allPlaces]);
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
-        <div className={styles.bigTextSmall}>Saved POIs</div>
-        <div className={styles.badge}>{savedPlaces.length}</div>
+    <div>
+      <div
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className={styles.bigTextSmall}>Saved Places</span>
+          <span className={styles.badge}>{savedPlaces.length}</span>
+        </div>
+        <span className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
       </div>
 
-      <div className={styles.cardBody}>
-        {savedPlaces.length === 0 ? (
-          <div className={styles.muted}>No saved POIs yet.</div>
-        ) : (
-          savedPlaces.map((place) => (
-            <div
-              key={place.id}
-              className={styles.rowBetween}
-              style={{
-                padding: "8px 0",
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-                gap: 8,
-              }}
-            >
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {savedPlaces.length === 0 ? (
+            <div className={styles.muted}>No saved places yet.</div>
+          ) : (
+            savedPlaces.map((place) => (
               <div
-                style={{ cursor: "pointer", minWidth: 0 }}
-                onClick={() => onSelectPlace(place.id)}
+                key={place.id}
+                className={styles.rowBetween}
+                style={{
+                  padding: "10px 0",
+                  borderTop: "1px solid rgba(255,255,255,0.04)",
+                  gap: 8,
+                }}
               >
-                <div>{place.name}</div>
-                <div className={styles.muted}>{place.type}</div>
-              </div>
+                <div
+                  style={{ cursor: "pointer", minWidth: 0 }}
+                  onClick={() => onSelectPlace(place.id)}
+                >
+                  <div style={{ fontWeight: 600 }}>{place.name}</div>
+                  <div className={styles.muted} style={{ fontSize: 12 }}>{place.type}</div>
+                </div>
 
-              <button className={styles.btn} onClick={() => onRemoveSaved(place.id)}>
-                Remove
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+                <button className={styles.btn} onClick={() => onRemoveSaved(place.id)} style={{ flexShrink: 0 }}>
+                  Remove
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useLayoutEffect, useState, memo } from "react";
+import { useRef, useEffect, useMemo, memo } from "react";
 import type { Village, Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
 
@@ -38,10 +38,6 @@ export const VillageBrowser = memo(function VillageBrowser({
   onResetToAll: () => void;
 }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const dropdownTriggerRef = useRef<HTMLButtonElement>(null);
-  const cardBodyRef = useRef<HTMLDivElement>(null);
-  const [dropdownMaxHeight, setDropdownMaxHeight] = useState<number>(260);
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -55,33 +51,6 @@ export const VillageBrowser = memo(function VillageBrowser({
   useEffect(() => {
     if (!isOpen && dropdownOpen) onDropdownToggle();
   }, [isOpen, dropdownOpen, onDropdownToggle]);
-
-  useLayoutEffect(() => {
-    if (!dropdownOpen) return;
-
-    const updateMaxHeight = () => {
-      const trigger = dropdownTriggerRef.current;
-      const body = cardBodyRef.current;
-      if (!trigger || !body) return;
-
-      const triggerRect = trigger.getBoundingClientRect();
-      const bodyRect = body.getBoundingClientRect();
-      const spaceBelowTrigger = bodyRect.bottom - triggerRect.bottom - 8;
-      const clamped = Math.max(0, Math.min(260, Math.floor(spaceBelowTrigger)));
-      setDropdownMaxHeight(clamped);
-    };
-
-    updateMaxHeight();
-
-    window.addEventListener("resize", updateMaxHeight);
-    const observer = new ResizeObserver(updateMaxHeight);
-    if (cardBodyRef.current) observer.observe(cardBodyRef.current);
-
-    return () => {
-      window.removeEventListener("resize", updateMaxHeight);
-      observer.disconnect();
-    };
-  }, [dropdownOpen]);
 
   const sortedVillages = useMemo(
     () => [...villages].sort((a, b) => a.name.localeCompare(b.name)),
@@ -117,11 +86,11 @@ export const VillageBrowser = memo(function VillageBrowser({
         aria-hidden={!isOpen}
       >
         <div className={styles.collapsibleInner}>
-          <div className={styles.cardBody} ref={cardBodyRef}>
+          <div className={styles.cardBody}>
             <div className={styles.dropdown} ref={dropdownRef}>
               <button
                 className={styles.dropdownTrigger}
-                ref={dropdownTriggerRef}
+
                 onClick={(e) => {
                   e.stopPropagation();
                   onDropdownToggle();
@@ -155,7 +124,6 @@ export const VillageBrowser = memo(function VillageBrowser({
                   dropdownOpen ? styles.dropdownMenuOpen : ""
                 }`}
                 aria-hidden={!dropdownOpen}
-                style={dropdownOpen ? { maxHeight: `${dropdownMaxHeight}px` } : undefined}
               >
                 <button
                   className={`${styles.dropdownItem} ${
@@ -194,21 +162,23 @@ export const VillageBrowser = memo(function VillageBrowser({
                   );
 
                   return (
-                    <div key={section.key}>
-                      <h4>{section.label}</h4>
-                      {items.length === 0 ? (
-                        <div className={styles.muted}>None in this village.</div>
-                      ) : (
-                        items.map((p) => (
-                          <button
-                            key={p.id}
-                            className={styles.item}
-                            onClick={() => onSelectPlace(p.id)}
-                          >
-                            {p.name}
-                          </button>
-                        ))
-                      )}
+                    <div key={section.key} style={{ marginTop: 16 }}>
+                      <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{section.label}</h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {items.length === 0 ? (
+                          <div className={styles.muted}>None in this village.</div>
+                        ) : (
+                          items.map((p) => (
+                            <button
+                              key={p.id}
+                              className={styles.item}
+                              onClick={() => onSelectPlace(p.id)}
+                            >
+                              {p.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
                     </div>
                   );
                 })}
