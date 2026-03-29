@@ -53,6 +53,7 @@ export function ItineraryCard({
 }) {
   const [title, setTitle] = useState("");
   const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
 
   const placeMap = useMemo(() => new Map(allPlaces.map((p) => [p.id, p])), [allPlaces]);
 
@@ -62,12 +63,24 @@ export function ItineraryCard({
   }
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
-        <div className={styles.bigTextSmall}>Itineraries</div>
+    <div>
+      <div
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className={styles.bigTextSmall}>Itineraries</span>
+          <span className={styles.badge}>{itineraries.length}</span>
+        </div>
+        <span className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
       </div>
 
-      <div className={styles.cardBody}>
+      {open && (
+      <div style={{ marginTop: 10 }}>
         <div className={styles.row} style={{ marginBottom: 12 }}>
           <input
             className={styles.input}
@@ -264,6 +277,7 @@ export function ItineraryCard({
           })
         )}
       </div>
+      )}
     </div>
   );
 }

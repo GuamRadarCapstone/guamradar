@@ -13,7 +13,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.100.0",
+    "@supabase/supabase-js": "^2.100.1",
     "@turf/helpers": "^7.3.4",
     "@turf/intersect": "^7.3.4",
     "@vis.gl/react-google-maps": "^1.7.1",
