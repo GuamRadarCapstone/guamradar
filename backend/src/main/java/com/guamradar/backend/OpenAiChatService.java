@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -75,7 +76,7 @@ public class OpenAiChatService {
     body.put("model", model);
     body.put("instructions", GUAMRADAR_INSTRUCTIONS);
     body.put("input", buildInput(chatRequest));
-    body.put("max_output_tokens", 700);
+    body.put("max_output_tokens", 2_000);
 
     HttpRequest request = HttpRequest.newBuilder()
       .uri(URI.create("https://api.openai.com/v1/responses"))
@@ -132,6 +133,12 @@ public class OpenAiChatService {
 
   private String extractOutputText(String responseBody) throws IOException {
     JsonNode root = objectMapper.readTree(responseBody);
+
+    JsonNode responseError = root.get("error");
+    if (responseError != null && !responseError.isNull()) {
+      throw new IOException("OpenAI response error: " + responseError.toString());
+    }
+
     JsonNode outputText = root.get("output_text");
     if (outputText != null && outputText.isTextual() && !outputText.asText().isBlank()) {
       return outputText.asText();
@@ -144,17 +151,63 @@ public class OpenAiChatService {
         JsonNode content = item.get("content");
         if (content == null || !content.isArray()) continue;
         for (JsonNode contentItem : content) {
+          JsonNode type = contentItem.get("type");
           JsonNode itemText = contentItem.get("text");
-          if (itemText != null && itemText.isTextual()) {
+          if (
+            type != null &&
+            type.isTextual() &&
+            type.asText().equals("output_text") &&
+            itemText != null &&
+            itemText.isTextual()
+          ) {
             if (!text.isEmpty()) text.append("\n\n");
             text.append(itemText.asText());
+            continue;
+          }
+
+          JsonNode refusal = contentItem.get("refusal");
+          if (refusal != null && refusal.isTextual() && !refusal.asText().isBlank()) {
+            if (!text.isEmpty()) text.append("\n\n");
+            text.append(refusal.asText());
           }
         }
       }
       if (!text.isEmpty()) return text.toString();
     }
 
-    return "I could not generate a response right now.";
+    throw new IOException("OpenAI response had no text output. " + summarizeResponse(root));
+  }
+
+  private String summarizeResponse(JsonNode root) {
+    String id = textOrUnknown(root.get("id"));
+    String status = textOrUnknown(root.get("status"));
+    String incompleteReason = textOrUnknown(root.path("incomplete_details").get("reason"));
+    String outputTypes = "none";
+
+    JsonNode output = root.get("output");
+    if (output != null && output.isArray()) {
+      outputTypes = stream(output)
+        .stream()
+        .map((item) -> textOrUnknown(item.get("type")))
+        .collect(Collectors.joining(","));
+    }
+
+    return "id=" + id +
+      ", status=" + status +
+      ", incomplete_reason=" + incompleteReason +
+      ", output_types=" + outputTypes;
+  }
+
+  private List<JsonNode> stream(JsonNode arrayNode) {
+    List<JsonNode> nodes = new java.util.ArrayList<>();
+    arrayNode.forEach(nodes::add);
+    return nodes;
+  }
+
+  private String textOrUnknown(JsonNode node) {
+    if (node == null || node.isNull()) return "unknown";
+    if (node.isTextual()) return node.asText();
+    return node.toString();
   }
 
   private String extractErrorMessage(String responseBody) {
