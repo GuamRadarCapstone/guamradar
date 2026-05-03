@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, categoryLabel, t } from "../lib/i18n";
 
 export type ItineraryRow = {
   id: string;
@@ -23,6 +24,7 @@ function buildShareLink(shareToken: string) {
 }
 
 export function ItineraryCard({
+  lang,
   currentPlace,
   itineraries,
   itineraryItems,
@@ -37,6 +39,7 @@ export function ItineraryCard({
   onUpdateItem,
   onCopySummary,
 }: {
+  lang: Language;
   currentPlace: Place | null;
   itineraries: ItineraryRow[];
   itineraryItems: ItineraryItemRow[];
@@ -59,7 +62,7 @@ export function ItineraryCard({
 
   async function copyLink(token: string) {
     await navigator.clipboard.writeText(buildShareLink(token));
-    alert("Share link copied.");
+    alert(t(lang, "shareCopied"));
   }
 
   return (
@@ -69,7 +72,7 @@ export function ItineraryCard({
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className={styles.bigTextSmall}>Itineraries</span>
+          <span className={styles.bigTextSmall}>{t(lang, "itineraries")}</span>
           <span className={styles.badge}>{itineraries.length}</span>
         </div>
         <span className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}>
@@ -84,7 +87,7 @@ export function ItineraryCard({
         <div className={styles.row} style={{ marginBottom: 12 }}>
           <input
             className={styles.input}
-            placeholder="New itinerary title"
+            placeholder={t(lang, "newItineraryTitle")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -102,7 +105,7 @@ export function ItineraryCard({
         </div>
 
         {itineraries.length === 0 ? (
-          <div className={styles.muted}>No itineraries yet.</div>
+          <div className={styles.muted}>{t(lang, "noItineraries")}</div>
         ) : (
           itineraries.map((itinerary) => {
             const items = itineraryItems
@@ -111,9 +114,9 @@ export function ItineraryCard({
 
             const shareLink = buildShareLink(itinerary.share_token);
             const mailto = `mailto:?subject=${encodeURIComponent(
-              `GuamRadar itinerary: ${itinerary.title}`,
+              `${t(lang, "emailSubjectPrefix")}: ${itinerary.title}`,
             )}&body=${encodeURIComponent(
-              `Here is my GuamRadar itinerary:\n\n${shareLink}`,
+              `${t(lang, "emailBodyIntro")}:\n\n${shareLink}`,
             )}`;
 
             const isActive = activeItineraryId === itinerary.id;
@@ -137,8 +140,8 @@ export function ItineraryCard({
                   >
                     <div className={styles.detailTitle}>{itinerary.title}</div>
                     <div className={styles.muted}>
-                      {itinerary.is_public ? "Public share enabled" : "Private"}
-                      {isActive ? " • Showing on map" : ""}
+                      {itinerary.is_public ? t(lang, "publicShareEnabled") : t(lang, "private")}
+                      {isActive ? " • " + t(lang, "showingOnMap") : ""}
                     </div>
                   </div>
 
@@ -148,7 +151,7 @@ export function ItineraryCard({
                       checked={itinerary.is_public}
                       onChange={(e) => onTogglePublic(itinerary.id, e.target.checked)}
                     />{" "}
-                    Public
+                    {t(lang, "publicShare")}
                   </label>
                 </div>
 
@@ -158,7 +161,7 @@ export function ItineraryCard({
                       className={styles.btnPrimary}
                       onClick={() => onAddPlaceToItinerary(itinerary.id, currentPlace.id)}
                     >
-                      Add selected place
+                      {t(lang, "addSelectedPlace")}
                     </button>
                   </div>
                 )}
@@ -169,7 +172,7 @@ export function ItineraryCard({
                     onClick={() => copyLink(itinerary.share_token)}
                     disabled={!itinerary.is_public}
                   >
-                    Copy share link
+                    {t(lang, "copyShareLink")}
                   </button>
 
                   <a
@@ -180,17 +183,17 @@ export function ItineraryCard({
                       opacity: itinerary.is_public ? 1 : 0.5,
                     }}
                   >
-                    Email itinerary
+                    {t(lang, "emailItinerary")}
                   </a>
 
                   <button className={styles.btn} onClick={() => onCopySummary(itinerary.id)}>
-                    Copy summary text
+                    {t(lang, "copySummary")}
                   </button>
                 </div>
 
                 <div style={{ marginTop: 12 }}>
                   {items.length === 0 ? (
-                    <div className={styles.muted}>No places yet.</div>
+                    <div className={styles.muted}>{t(lang, "noPlacesYet")}</div>
                   ) : (
                     items.map((item, index) => {
                       const place = placeMap.get(item.poi_id);
@@ -210,9 +213,9 @@ export function ItineraryCard({
                               onClick={() => setExpandedItemId(expanded ? null : item.id)}
                             >
                               <div>
-                                Day {item.day_number} • {place?.name ?? item.poi_id}
+                                {t(lang, "day")} {item.day_number} • {place?.name ?? item.poi_id}
                               </div>
-                              <div className={styles.muted}>{place?.type ?? ""}</div>
+                              <div className={styles.muted}>{place?.type ? categoryLabel(place.type, lang) : ""}</div>
                             </div>
 
                             <div className={styles.row} style={{ gap: 6, flexWrap: "wrap" }}>
@@ -231,7 +234,7 @@ export function ItineraryCard({
                                 ↓
                               </button>
                               <button className={styles.btn} onClick={() => onRemoveItem(item.id)}>
-                                Remove
+                                {t(lang, "remove")}
                               </button>
                             </div>
                           </div>
@@ -239,7 +242,7 @@ export function ItineraryCard({
                           {expanded && (
                             <div style={{ marginTop: 10 }}>
                               <div className={styles.row} style={{ gap: 8, marginBottom: 8 }}>
-                                <label className={styles.muted}>Day</label>
+                                <label className={styles.muted}>{t(lang, "day")}</label>
                                 <input
                                   className={styles.input}
                                   type="number"
@@ -256,7 +259,7 @@ export function ItineraryCard({
 
                               <textarea
                                 className={styles.input}
-                                placeholder="Notes for this stop"
+                                placeholder={t(lang, "notesForStop")}
                                 value={item.notes ?? ""}
                                 onChange={(e) =>
                                   onUpdateItem(item.id, {

@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import type { Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, categoryLabel, t } from "../lib/i18n";
 
 export function SavedPoisCard({
+  lang,
   savedPoiIds,
   allPlaces,
   onSelectPlace,
   onRemoveSaved,
 }: {
+  lang: Language;
   savedPoiIds: string[];
   allPlaces: Place[];
   onSelectPlace: (id: string) => void;
@@ -26,7 +29,7 @@ export function SavedPoisCard({
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", padding: "2px 0" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className={styles.bigTextSmall}>Saved Places</span>
+          <span className={styles.bigTextSmall}>{t(lang, "savedPlaces")}</span>
           <span className={styles.badge}>{savedPlaces.length}</span>
         </div>
         <span className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}>
@@ -39,7 +42,7 @@ export function SavedPoisCard({
       {open && (
         <div style={{ marginTop: 10 }}>
           {savedPlaces.length === 0 ? (
-            <div className={styles.muted}>No saved places yet.</div>
+            <div className={styles.muted}>{t(lang, "noSavedPlaces")}</div>
           ) : (
             savedPlaces.map((place) => (
               <div
@@ -56,11 +59,11 @@ export function SavedPoisCard({
                   onClick={() => onSelectPlace(place.id)}
                 >
                   <div style={{ fontWeight: 600 }}>{place.name}</div>
-                  <div className={styles.muted} style={{ fontSize: 12 }}>{place.type}</div>
+                  <div className={styles.muted} style={{ fontSize: 12 }}>{categoryLabel(place.type, lang)}</div>
                 </div>
 
                 <button className={styles.btn} onClick={() => onRemoveSaved(place.id)} style={{ flexShrink: 0 }}>
-                  Remove
+                  {t(lang, "remove")}
                 </button>
               </div>
             ))

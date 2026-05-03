@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, t } from "../lib/i18n";
 
 type Props = {
+  lang: Language;
   onSignedIn?: () => void;
   onAuthChange?: (signedIn: boolean) => void;
 };
 
-export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
+export default function AuthCard({ lang, onSignedIn, onAuthChange }: Props) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -58,9 +60,9 @@ export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
     :       "https://guamradar.com",        },
       });
       if (error) setMessage(error.message);
-      else setMessage("Check your email for the login link.");
+      else setMessage(t(lang, "loginLinkSent"));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Login failed.");
+      setMessage(err instanceof Error ? err.message : t(lang, "loginFailed"));
     }
     setLoading(false);
   }
@@ -102,16 +104,16 @@ export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{displayEmail}</div>
               <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                {demoMode ? "Demo account" : "Signed in via magic link"}
+                {demoMode ? t(lang, "demoAccount") : t(lang, "signedMagic")}
               </div>
             </div>
             <button className={styles.btn} onClick={handleLogout} style={{ flexShrink: 0 }}>
-              Sign out
+              {t(lang, "signOut")}
             </button>
           </div>
           {demoMode && (
             <div className={styles.notice} style={{ marginBottom: 8 }}>
-              Demo mode — data is local only.
+              {t(lang, "demoLocal")}
             </div>
           )}
         </>
@@ -119,13 +121,13 @@ export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
         <>
           <div style={{ marginBottom: 14 }}>
             <div className={styles.muted} style={{ marginBottom: 12 }}>
-              Sign in to save places and build itineraries.
+              {t(lang, "signInSave")}
             </div>
             <div className={styles.section}>
               <input
                 className={styles.input}
                 type="email"
-                placeholder="Enter your email"
+                placeholder={t(lang, "enterEmail")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
@@ -136,7 +138,7 @@ export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
                 disabled={loading}
                 style={{ width: "100%" }}
               >
-                {loading ? "Sending..." : "Send login link"}
+                {loading ? t(lang, "sending") : t(lang, "sendLoginLink")}
               </button>
             </div>
           </div>
@@ -146,7 +148,7 @@ export default function AuthCard({ onSignedIn, onAuthChange }: Props) {
               onClick={() => setDemoMode(true)}
               style={{ width: "100%", opacity: 0.7 }}
             >
-              Preview as signed-in user
+              {t(lang, "previewSignedIn")}
             </button>
           </div>
         </>

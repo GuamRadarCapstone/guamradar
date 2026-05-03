@@ -1,20 +1,22 @@
 import { useRef, useEffect, useMemo, memo } from "react";
 import type { Village, Place } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, categoryLabel, t } from "../lib/i18n";
 
 const VILLAGE_CATEGORY_SECTIONS = [
-  { key: "RESTAURANT", label: "Restaurants" },
-  { key: "ATTRACTION", label: "Attractions" },
-  { key: "HOTEL", label: "Hotels" },
-  { key: "SHOPPING", label: "Shopping" },
-  { key: "SERVICE", label: "Services" },
-  { key: "SCHOOL", label: "Schools" },
-  { key: "TRANSPORT", label: "Transport" },
-  { key: "BASE", label: "Bases" },
-  { key: "HOSPITAL", label: "Hospitals" },
+  { key: "RESTAURANT" },
+  { key: "ATTRACTION" },
+  { key: "HOTEL" },
+  { key: "SHOPPING" },
+  { key: "SERVICE" },
+  { key: "SCHOOL" },
+  { key: "TRANSPORT" },
+  { key: "BASE" },
+  { key: "HOSPITAL" },
 ] as const;
 
 export const VillageBrowser = memo(function VillageBrowser({
+  lang,
   villages,
   selectedVillageId,
   villagePlaces,
@@ -26,6 +28,7 @@ export const VillageBrowser = memo(function VillageBrowser({
   onDropdownToggle,
   onResetToAll,
 }: {
+  lang: Language;
   villages: Village[];
   selectedVillageId: string | null;
   villagePlaces: Place[];
@@ -58,13 +61,13 @@ export const VillageBrowser = memo(function VillageBrowser({
   );
 
   const selectedName = selectedVillageId
-    ? villages.find((v) => v.id === selectedVillageId)?.name ?? "Select village"
+    ? villages.find((v) => v.id === selectedVillageId)?.name ?? t(lang, "selectVillage")
     : null;
 
   return (
     <div className={`${styles.card} ${!isOpen ? styles.cardCollapsed : ""}`}>
       <div className={styles.cardHeader} onClick={onToggle}>
-        <div className={styles.bigTextSmall}>Browse by Village</div>
+        <div className={styles.bigTextSmall}>{t(lang, "browseByVillage")}</div>
         <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>
           <svg
             width="16"
@@ -97,7 +100,7 @@ export const VillageBrowser = memo(function VillageBrowser({
                 }}
               >
                 <span className={selectedName ? undefined : styles.dropdownPlaceholder}>
-                  {selectedName ?? "Select village"}
+                  {selectedName ?? t(lang, "selectVillage")}
                 </span>
                 <span
                   className={`${styles.dropdownArrow} ${
@@ -134,7 +137,7 @@ export const VillageBrowser = memo(function VillageBrowser({
                     onDropdownToggle();
                   }}
                 >
-                  All villages
+                  {t(lang, "allVillages")}
                 </button>
 
                 {sortedVillages.map((v) => (
@@ -163,10 +166,10 @@ export const VillageBrowser = memo(function VillageBrowser({
 
                   return (
                     <div key={section.key} style={{ marginTop: 16 }}>
-                      <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{section.label}</h4>
+                      <h4 style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{categoryLabel(section.key, lang)}</h4>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {items.length === 0 ? (
-                          <div className={styles.muted}>None in this village.</div>
+                          <div className={styles.muted}>{t(lang, "noneInVillage")}</div>
                         ) : (
                           items.map((p) => (
                             <button

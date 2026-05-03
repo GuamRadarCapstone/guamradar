@@ -29,6 +29,18 @@ import {
 import { DEFAULT_CENTER, GUAM_BOUNDS, GUAM_BOUNDS_PADDING } from "../../lib/constants";
 import { placeEmoji, eventEmoji } from "../../lib/ui";
 import { supabase } from "../../lib/supabase";
+import {
+  LANGUAGE_OPTIONS,
+  LANGUAGE_STORAGE_KEY,
+  type Language,
+  type TranslationStatus,
+  categoryLabel,
+  getStoredLanguage,
+  t,
+  translateEventsToLanguage,
+  translatePlacesToLanguage,
+  translateVillagesToLanguage,
+} from "../../lib/i18n";
 
 import type { Village, Place, EventItem, LiveHotspot } from "../../types/data";
 
@@ -488,6 +500,7 @@ function FitVillageBounds({
 }
 
 function MapControls({
+  lang,
   showVillages,
   onToggleVillages,
   showMarkers,
@@ -497,6 +510,7 @@ function MapControls({
   onToggleSettings,
   settingsPopup,
 }: {
+  lang: Language;
   showVillages: boolean;
   onToggleVillages: () => void;
   showMarkers: boolean;
@@ -511,7 +525,7 @@ function MapControls({
       <div className={styles.mapControls}>
         <button
           className={styles.mapCtrlBtn}
-          title="My location"
+          title={t(lang, "myLocation")}
           onClick={onLocateMe}
         >
           <svg viewBox="-1 -1 26 26" width="18" height="18" fill="none" stroke="#e8e8e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -525,7 +539,7 @@ function MapControls({
 
         <button
           className={styles.mapCtrlBtn}
-          title={showMarkers ? "Hide markers" : "Show markers"}
+          title={showMarkers ? t(lang, "hideMarkers") : t(lang, "showMarkers")}
           onClick={onToggleMarkers}
           style={{ opacity: showMarkers ? 1 : 0.5 }}
         >
@@ -537,7 +551,7 @@ function MapControls({
 
         <button
           className={styles.mapCtrlBtn}
-          title={showVillages ? "Hide village borders" : "Show village borders"}
+          title={showVillages ? t(lang, "hideVillageBorders") : t(lang, "showVillageBorders")}
           onClick={onToggleVillages}
           style={{ opacity: showVillages ? 1 : 0.5 }}
         >
@@ -553,7 +567,7 @@ function MapControls({
       <div className={styles.mapControls} style={{ marginTop: 6 }}>
         <button
           className={styles.mapCtrlBtn}
-          title="Settings"
+          title={t(lang, "settings")}
           onClick={onToggleSettings}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={settingsOpen ? "rgba(69,217,168,1)" : "#e8e8e8"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -634,7 +648,7 @@ function getOverlayClass() {
   return _OverlayClass!;
 }
 
-function MapPopup({ info, onClose }: { info: NonNullable<PopupInfo>; onClose: () => void }) {
+function MapPopup({ lang, info, onClose }: { lang: Language; info: NonNullable<PopupInfo>; onClose: () => void }) {
   const map = useMap();
   const overlayRef = useRef<any>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -673,7 +687,7 @@ function MapPopup({ info, onClose }: { info: NonNullable<PopupInfo>; onClose: ()
         return (
           <>
             <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>{info.village.name}</div>
-            <div style={{ color: "#8a8a8a", fontSize: 12, marginTop: 2 }}>Tap to explore</div>
+            <div style={{ color: "#8a8a8a", fontSize: 12, marginTop: 2 }}>{t(lang, "tapToExplore")}</div>
           </>
         );
 
@@ -682,7 +696,7 @@ function MapPopup({ info, onClose }: { info: NonNullable<PopupInfo>; onClose: ()
           <>
             <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>{info.place.name}</div>
             <div style={{ color: "#8a8a8a", fontSize: 12, marginTop: 2 }}>
-              {info.place.category ?? info.place.type} • {info.place.source}
+              {categoryLabel(info.place.category ?? info.place.type, lang)} • {info.place.source}
             </div>
           </>
         );
@@ -700,7 +714,7 @@ function MapPopup({ info, onClose }: { info: NonNullable<PopupInfo>; onClose: ()
       case "USER":
         return (
           <>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>You are here</div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>{t(lang, "youAreHere")}</div>
             <div style={{ color: "#8a8a8a", fontSize: 12, marginTop: 2 }}>
               {info.lat.toFixed(5)}, {info.lng.toFixed(5)}
               {typeof info.acc === "number" ? ` • ±${Math.round(info.acc)}m` : ""}
@@ -711,15 +725,15 @@ function MapPopup({ info, onClose }: { info: NonNullable<PopupInfo>; onClose: ()
       case "LIVE":
         return (
           <>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>Live activity</div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#e8e8e8" }}>{t(lang, "liveActivity")}</div>
             <div style={{ color: "#c4c4c4", fontSize: 12, marginTop: 2 }}>{info.hotspot.label}</div>
             <div style={{ color: "#8a8a8a", fontSize: 12, marginTop: 2 }}>
-              {info.hotspot.count} recent check-ins (demo)
+              {info.hotspot.count} {t(lang, "recentCheckinsDemo")}
             </div>
           </>
         );
     }
-  }, [info]);
+  }, [info, lang]);
 
   if (!container) return null;
 
@@ -793,6 +807,11 @@ export function HomePage() {
   const [search, setSearch] = useState("");
   const [openNow, setOpenNow] = useState(false);
   const [nearMe, setNearMe] = useState(false);
+  const [lang, setLang] = useState<Language>(getStoredLanguage);
+  const [translationStatus, setTranslationStatus] = useState<TranslationStatus>("idle");
+  const [displayPlaces, setDisplayPlaces] = useState<Place[]>(PLACES);
+  const [displayEvents, setDisplayEvents] = useState<EventItem[]>(EVENTS);
+  const [displayVillages, setDisplayVillages] = useState<Village[]>(villages);
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const centerOnGuam = useCallback(() => {
@@ -833,7 +852,52 @@ export function HomePage() {
     setSelected(null);
   });
 
-  const { filteredPlaces, filteredEvents, results } = useFilteredResults(PLACES, EVENTS, {
+  useEffect(() => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+
+    let cancelled = false;
+
+    async function applyLanguage() {
+      if (lang === "en") {
+        setDisplayPlaces(PLACES);
+        setDisplayEvents(EVENTS);
+        setDisplayVillages(villages);
+        setTranslationStatus("idle");
+        return;
+      }
+
+      setTranslationStatus("loading");
+
+      try {
+        const [translatedPlaces, translatedEvents, translatedVillages] = await Promise.all([
+          translatePlacesToLanguage(PLACES, lang),
+          translateEventsToLanguage(EVENTS, lang),
+          translateVillagesToLanguage(villages, lang),
+        ]);
+
+        if (cancelled) return;
+        setDisplayPlaces(translatedPlaces);
+        setDisplayEvents(translatedEvents);
+        setDisplayVillages(translatedVillages);
+        setTranslationStatus("ready");
+      } catch (error) {
+        console.error("Translation failed:", error);
+        if (cancelled) return;
+        setDisplayPlaces(PLACES);
+        setDisplayEvents(EVENTS);
+        setDisplayVillages(villages);
+        setTranslationStatus("error");
+      }
+    }
+
+    applyLanguage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, villages]);
+
+  const { filteredPlaces, filteredEvents, results } = useFilteredResults(displayPlaces, displayEvents, {
     selectedVillageId: deferredVillageId,
     category,
     search,
@@ -972,9 +1036,9 @@ export function HomePage() {
   }, [loadSharedItinerary]);
 
   const selectedVillageName = useMemo(() => {
-    if (!deferredVillageId) return "Explore";
-    return villages.find((v) => v.id === deferredVillageId)?.name ?? "Explore";
-  }, [deferredVillageId, villages]);
+    if (!deferredVillageId) return t(lang, "explore");
+    return displayVillages.find((v) => v.id === deferredVillageId)?.name ?? t(lang, "explore");
+  }, [deferredVillageId, displayVillages, lang]);
 
   const villagePlaces = useMemo(() => {
     if (!deferredVillageId) return [];
@@ -982,18 +1046,18 @@ export function HomePage() {
     const normalize = (v: string | null | undefined) =>
       (v ?? "").toLowerCase().replace(/[^a-z]/g, "");
 
-    return PLACES.filter((p) => normalize(p.villageId) === normalize(deferredVillageId));
-  }, [deferredVillageId]);
+    return displayPlaces.filter((p) => normalize(p.villageId) === normalize(deferredVillageId));
+  }, [deferredVillageId, displayPlaces]);
 
   const selectedDetail = useMemo(() => {
     if (!selected) return null;
     if (selected.kind === "PLACE") {
-      const p = PLACES.find((x) => x.id === selected.id);
+      const p = displayPlaces.find((x) => x.id === selected.id);
       return p ? { kind: "PLACE" as const, p } : null;
     }
-    const e = EVENTS.find((x) => x.id === selected.id);
+    const e = displayEvents.find((x) => x.id === selected.id);
     return e ? { kind: "EVENT" as const, e } : null;
-  }, [selected]);
+  }, [selected, displayPlaces, displayEvents]);
 
   const selectedPlace = useMemo(() => {
     return selectedDetail?.kind === "PLACE" ? selectedDetail.p : null;
@@ -1191,7 +1255,7 @@ export function HomePage() {
     const lines = [`${itinerary.title}`, ""];
 
     items.forEach((item) => {
-      const place = PLACES.find((p) => p.id === item.poi_id);
+      const place = displayPlaces.find((p) => p.id === item.poi_id);
       lines.push(`Day ${item.day_number}: ${place?.name ?? item.poi_id}`);
       if (item.notes?.trim()) lines.push(`Notes: ${item.notes.trim()}`);
       lines.push("");
@@ -1199,7 +1263,7 @@ export function HomePage() {
 
     await navigator.clipboard.writeText(lines.join("\n"));
     alert("Itinerary summary copied.");
-  }, [itineraries, itineraryItems]);
+  }, [itineraries, itineraryItems, displayPlaces]);
 
   const selectVillage = useCallback((id: string | null) => {
     setSelectedVillageId(id);
@@ -1285,6 +1349,7 @@ export function HomePage() {
               <MapRefCapture mapRef={mapRef} />
               <FitVillageBounds villages={villages} selectedVillageId={selectedVillageId} />
               <MapControls
+                lang={lang}
                 showVillages={showVillages}
                 onToggleVillages={toggleShowVillages}
                 showMarkers={showPOI || showEvents}
@@ -1298,10 +1363,10 @@ export function HomePage() {
                 onToggleSettings={() => setSettingsOpen((o) => !o)}
                 settingsPopup={<>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>
-                    Map Theme
+                    {t(lang, "mapTheme")}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {Object.entries(MAP_THEMES).map(([key, theme]) => (
+                    {Object.entries(MAP_THEMES).map(([key]) => (
                       <button
                         key={key}
                         onClick={() => setMapTheme(key)}
@@ -1318,13 +1383,53 @@ export function HomePage() {
                           fontFamily: "inherit",
                         }}
                       >
-                        {theme.name}
+                        {t(lang, key)}
                       </button>
                     ))}
                   </div>
+
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                     <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>
-                      Music
+                      {t(lang, "language")}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {LANGUAGE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => setLang(option.value)}
+                          style={{
+                            width: "100%",
+                            padding: "6px 12px",
+                            fontSize: 13,
+                            fontWeight: lang === option.value ? 600 : 400,
+                            border: lang === option.value ? "1px solid rgba(43,181,160,0.5)" : "1px solid rgba(255,255,255,0.06)",
+                            borderRadius: 6,
+                            background: lang === option.value ? "rgba(43,181,160,0.12)" : "transparent",
+                            color: lang === option.value ? "var(--accent-light)" : "var(--text-secondary)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    {translationStatus === "loading" && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
+                        {t(lang, "translationLoading")}
+                      </div>
+                    )}
+                    {translationStatus === "error" && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: "#fca5a5" }}>
+                        {t(lang, "translationError")}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>
+                      {t(lang, "music")}
                     </div>
                     <button
                       onClick={toggleMusic}
@@ -1342,14 +1447,14 @@ export function HomePage() {
                         fontFamily: "inherit",
                       }}
                     >
-                      {musicOn ? "ON" : "OFF"}
+                      {musicOn ? t(lang, "on") : t(lang, "off")}
                     </button>
                   </div>
                 </>}
               />
 
               <VillageOverlay
-                villages={villages}
+                villages={displayVillages}
                 selectedVillageId={selectedVillageId}
                 showVillages={showVillages}
                 onVillageClick={onVillageClick}
@@ -1444,7 +1549,7 @@ export function HomePage() {
                 ))}
 
               {!borderFocusMode && popupInfo && (
-                <MapPopup info={popupInfo} onClose={() => setPopupInfo(null)} />
+                <MapPopup lang={lang} info={popupInfo} onClose={() => setPopupInfo(null)} />
               )}
             </GoogleMap>
           </APIProvider>
@@ -1468,7 +1573,7 @@ export function HomePage() {
                     className={styles.input}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search places, events, beaches..."
+                    placeholder={t(lang, "searchPlaceholder")}
                     style={{ marginBottom: 10 }}
                   />
 
@@ -1479,7 +1584,7 @@ export function HomePage() {
                         className={`${styles.chip} ${category === c.value ? styles.chipActive : ""}`}
                         onClick={() => setCategory(c.value)}
                       >
-                        {c.label}
+                        {categoryLabel(c.value, lang)}
                       </button>
                     ))}
                   </div>
@@ -1491,7 +1596,7 @@ export function HomePage() {
                         checked={openNow}
                         onChange={(e) => setOpenNow(e.target.checked)}
                       />{" "}
-                      Open now
+                      {t(lang, "openNow")}
                     </label>
 
                     <label className={styles.checkbox}>
@@ -1500,28 +1605,28 @@ export function HomePage() {
                         checked={nearMe}
                         onChange={(e) => setNearMe(e.target.checked)}
                       />{" "}
-                      Near me
+                      {t(lang, "nearMe")}
                     </label>
 
                     <button className={styles.btn} onClick={reset}>
-                      Reset
+                      {t(lang, "reset")}
                     </button>
                   </div>
 
                   {nearMe && !userLoc && (
                     <div className={styles.notice} style={{ marginTop: 8 }}>
-                      Turned on "Near me" — tap <b>Use my location</b> on the map.
+                      {t(lang, "nearMeNotice")}
                     </div>
                   )}
                 </div>
 
                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
                   <div className={styles.rowBetween} style={{ marginBottom: 8 }}>
-                    <span className={styles.tinyMuted}>Results</span>
-                    <span className={styles.tinyMuted}>{results.length} items</span>
+                    <span className={styles.tinyMuted}>{t(lang, "results")}</span>
+                    <span className={styles.tinyMuted}>{results.length} {t(lang, "items")}</span>
                   </div>
 
-                  <ResultsList results={results} userLoc={userLoc} onSelect={onSelectResult} />
+                  <ResultsList results={results} userLoc={userLoc} onSelect={onSelectResult} lang={lang} />
                 </div>
               </>
             )}
@@ -1529,7 +1634,8 @@ export function HomePage() {
             {panelTab === "villages" && (
               <>
                 <VillageBrowser
-                  villages={villages}
+                  lang={lang}
+                  villages={displayVillages}
                   selectedVillageId={selectedVillageId}
                   villagePlaces={villagePlaces}
                   isOpen={villageOpen}
@@ -1543,6 +1649,7 @@ export function HomePage() {
 
                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                   <DetailsPanel
+                    lang={lang}
                     selectedDetail={selectedDetail}
                     isOpen={detailsOpen}
                     onToggle={toggleDetails}
@@ -1558,14 +1665,15 @@ export function HomePage() {
 
             {panelTab === "profile" && (
               <>
-                <AuthCard onSignedIn={loadItineraryData} onAuthChange={setIsSignedIn} />
+                <AuthCard lang={lang} onSignedIn={loadItineraryData} onAuthChange={setIsSignedIn} />
 
                 {isSignedIn && (
                   <>
                     <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 14, paddingTop: 14 }}>
                       <SavedPoisCard
+                        lang={lang}
                         savedPoiIds={savedPoiIds}
-                        allPlaces={PLACES}
+                        allPlaces={displayPlaces}
                         onSelectPlace={onSelectPlace}
                         onRemoveSaved={toggleSavePoi}
                       />
@@ -1573,10 +1681,11 @@ export function HomePage() {
 
                     <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 14, paddingTop: 14 }}>
                       <ItineraryCard
+                        lang={lang}
                         currentPlace={selectedPlace}
                         itineraries={itineraries}
                         itineraryItems={itineraryItems}
-                        allPlaces={PLACES}
+                        allPlaces={displayPlaces}
                         activeItineraryId={activeItineraryId}
                         onSetActiveItinerary={setActiveItineraryId}
                         onCreateItinerary={createItinerary}
@@ -1591,14 +1700,14 @@ export function HomePage() {
 
                     {sharedItinerary && (
                       <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 14, paddingTop: 14 }}>
-                        <div className={styles.bigTextSmall} style={{ marginBottom: 10 }}>Shared Itinerary</div>
+                        <div className={styles.bigTextSmall} style={{ marginBottom: 10 }}>{t(lang, "sharedItinerary")}</div>
                         <div className={styles.detailTitle}>{sharedItinerary.title}</div>
 
                         {sharedItems.length === 0 ? (
-                          <div className={styles.muted}>No places.</div>
+                          <div className={styles.muted}>{t(lang, "noPlaces")}</div>
                         ) : (
                           sharedItems.map((item) => {
-                            const place = PLACES.find((p) => p.id === item.poi_id);
+                            const place = displayPlaces.find((p) => p.id === item.poi_id);
                             return (
                               <div
                                 key={item.id}
@@ -1607,7 +1716,7 @@ export function HomePage() {
                                   borderTop: "1px solid rgba(255,255,255,0.04)",
                                 }}
                               >
-                                <div>Day {item.day_number} • {place?.name ?? item.poi_id}</div>
+                                <div>{t(lang, "day")} {item.day_number} • {place?.name ?? item.poi_id}</div>
                                 <div className={styles.muted}>{place?.type ?? ""}</div>
                                 {item.notes && <div className={styles.muted}>{item.notes}</div>}
                               </div>
@@ -1626,25 +1735,25 @@ export function HomePage() {
         {/* Bottom navigation bar */}
         <div className={styles.bottomNav}>
           {([
-            { key: "map", label: "Map", icon: (
+            { key: "map", labelKey: "map", icon: (
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="1,6 1,22 8,18 16,22 23,18 23,2 16,6 8,2" />
                 <line x1="8" y1="2" x2="8" y2="18" />
                 <line x1="16" y1="6" x2="16" y2="22" />
               </svg>
             )},
-            { key: "explore", label: "Explore", icon: (
+            { key: "explore", labelKey: "explore", icon: (
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="3,11 22,2 13,21 11,13" />
               </svg>
             )},
-            { key: "villages", label: "Villages", icon: (
+            { key: "villages", labelKey: "villages", icon: (
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
             )},
-            { key: "profile", label: "Profile", icon: (
+            { key: "profile", labelKey: "profile", icon: (
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
@@ -1664,7 +1773,7 @@ export function HomePage() {
               }}
             >
               <span className={styles.navIcon}>{tab.icon}</span>
-              <span className={styles.navLabel}>{tab.label}</span>
+              <span className={styles.navLabel}>{t(lang, tab.labelKey)}</span>
             </button>
           ))}
         </div>
