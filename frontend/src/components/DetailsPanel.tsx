@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { Place, EventItem } from "../types/data";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, categoryLabel, t } from "../lib/i18n";
 
 type SelectedDetail =
   | { kind: "PLACE"; p: Place }
@@ -8,6 +9,7 @@ type SelectedDetail =
   | null;
 
 export const DetailsPanel = memo(function DetailsPanel({
+  lang,
   selectedDetail,
   isOpen,
   onToggle,
@@ -15,6 +17,7 @@ export const DetailsPanel = memo(function DetailsPanel({
   isSaved,
   onToggleSave,
 }: {
+  lang: Language;
   selectedDetail: SelectedDetail;
   isOpen: boolean;
   onToggle: () => void;
@@ -25,11 +28,11 @@ export const DetailsPanel = memo(function DetailsPanel({
   return (
     <div className={`${styles.card} ${!isOpen ? styles.cardCollapsed : ""}`}>
       <div className={styles.cardHeader} onClick={onToggle}>
-        <div className={styles.bigTextSmall}>Details</div>
+        <div className={styles.bigTextSmall}>{t(lang, "details")}</div>
         <div className={styles.row}>
           {selectedDetail && (
             <div className={styles.badge}>
-              {selectedDetail.kind === "PLACE" ? selectedDetail.p.type : selectedDetail.e.status}
+              {selectedDetail.kind === "PLACE" ? categoryLabel(selectedDetail.p.type, lang) : categoryLabel(selectedDetail.e.status, lang)}
             </div>
           )}
           <span className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>
@@ -56,7 +59,7 @@ export const DetailsPanel = memo(function DetailsPanel({
         <div className={styles.collapsibleInner}>
           <div className={styles.cardBody}>
             {!selectedDetail ? (
-              <div className={styles.muted}>Click a marker or result to see details.</div>
+              <div className={styles.muted}>{t(lang, "noDetail")}</div>
             ) : selectedDetail.kind === "PLACE" ? (
               <>
                 <div className={styles.detailTitle}>{selectedDetail.p.name}</div>
@@ -71,12 +74,12 @@ export const DetailsPanel = memo(function DetailsPanel({
                     rel="noreferrer"
                     href={`https://www.google.com/maps?q=${selectedDetail.p.lat},${selectedDetail.p.lng}`}
                   >
-                    Directions
+                    {t(lang, "directions")}
                   </a>
 
                   {canSave && (
                     <button className={styles.btn} onClick={onToggleSave}>
-                      {isSaved ? "Remove saved POI" : "Save POI"}
+                      {isSaved ? t(lang, "removeSavedPoi") : t(lang, "savePoi")}
                     </button>
                   )}
                 </div>
@@ -93,13 +96,13 @@ export const DetailsPanel = memo(function DetailsPanel({
                     rel="noreferrer"
                     href={`https://www.google.com/maps?q=${selectedDetail.e.lat},${selectedDetail.e.lng}`}
                   >
-                    Directions
+                    {t(lang, "directions")}
                   </a>
                 </div>
               </>
             )}
             <div className={styles.footerNote}>
-              Saved POIs, itinerary notes, sharing, and map highlighting enabled.
+              {t(lang, "footerNote")}
             </div>
           </div>
         </div>

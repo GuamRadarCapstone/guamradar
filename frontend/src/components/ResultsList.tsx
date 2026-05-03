@@ -2,21 +2,23 @@ import { memo } from "react";
 import type { ResultItem } from "../hooks/useFilteredResults";
 import { haversineKm } from "../lib/math";
 import styles from "../pages/HomePage/HomePage.module.css";
+import { type Language, categoryLabel, t } from "../lib/i18n";
 import {
   getCategoryBg,
   getCategoryColor,
   getCategoryIcon,
-  getCategoryLabel,
   getPoiOpenText,
 } from "../pages/HomePage/demoData";
 
 type UserLoc = { lat: number; lng: number } | null;
 
 export const ResultsList = memo(function ResultsList({
+  lang,
   results,
   userLoc,
   onSelect,
 }: {
+  lang: Language;
   results: ResultItem[];
   userLoc: UserLoc;
   onSelect: (kind: "PLACE" | "EVENT", id: string) => void;
@@ -24,7 +26,7 @@ export const ResultsList = memo(function ResultsList({
   return (
     <div className={styles.list}>
       {results.length === 0 ? (
-        <div className={styles.empty}>No results. Try resetting filters.</div>
+        <div className={styles.empty}>{t(lang, "noResults")}</div>
       ) : (
         results.map((r) => {
           const isPlace = r.kind === "PLACE";
@@ -39,17 +41,21 @@ export const ResultsList = memo(function ResultsList({
           const icon = getCategoryIcon(rawCategory as any);
           const color = getCategoryColor(rawCategory as any);
           const bg = getCategoryBg(rawCategory as any);
-          const label = getCategoryLabel(rawCategory as any);
+          const label = categoryLabel(rawCategory, lang);
 
           const meta = isPlace
-            ? `${r.data.source ?? "Demo Data"}`
-            : `${r.data.status === "VERIFIED" ? "Event (Verified)" : "Event (Pending)"} • ${r.data.source ?? "Demo Data"}`;
+            ? `${r.data.source ?? t(lang, "demoData")}`
+            : `${r.data.status === "VERIFIED" ? t(lang, "eventVerified") : t(lang, "eventPending")} • ${r.data.source ?? t(lang, "demoData")}`;
 
-          let openText = "Hours unavailable";
+          let openText = t(lang, "hoursUnavailable");
           if (isPlace) {
             try {
-              openText = getPoiOpenText(r.data as any);            } catch {
-              openText = (r.data as any).hours ?? "Hours unavailable";
+              openText = getPoiOpenText(r.data as any);
+              if (openText === "Open now") openText = t(lang, "openNow");
+              else if (openText === "Closed now") openText = t(lang, "closedNow");
+              else if (openText === "Hours unavailable") openText = t(lang, "hoursUnavailable");
+            } catch {
+              openText = (r.data as any).hours ?? t(lang, "hoursUnavailable");
             }
           }
 
@@ -74,7 +80,7 @@ export const ResultsList = memo(function ResultsList({
                     border: `1px solid ${color}`,
                   }}
                 >
-                  {isPlace ? label : ((r.data as any).status ?? "EVENT")}
+                  {isPlace ? label : categoryLabel((r.data as any).status ?? "EVENT", lang)}
                 </div>
               </div>
 
@@ -87,9 +93,9 @@ export const ResultsList = memo(function ResultsList({
                   <span
                     style={{
                       color:
-                        openText === "Open now"
+                        openText === "Open now" || openText === t(lang, "openNow")
                           ? "#22c55e"
-                          : openText === "Closed now"
+                          : openText === "Closed now" || openText === t(lang, "closedNow")
                             ? "#ef4444"
                             : undefined,
                       fontWeight: 700,
@@ -101,7 +107,7 @@ export const ResultsList = memo(function ResultsList({
                   <span>🗓️ {(r.data as any).when ?? ""}</span>
                 )}
 
-                {isPlace && (r.data as any).verified && <span>✅ Verified</span>}
+                {isPlace && (r.data as any).verified && <span>✅ {t(lang, "verified")}</span>}
               </div>
             </button>
           );
