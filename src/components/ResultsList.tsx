@@ -4,7 +4,6 @@ import { haversineKm } from "../lib/math";
 import styles from "../pages/HomePage/HomePage.module.css";
 import { type Language, categoryLabel, t } from "../lib/i18n";
 import {
-  type PoiCategory,
   getCategoryBg,
   getCategoryColor,
   getCategoryIcon,
@@ -39,10 +38,9 @@ export const ResultsList = memo(function ResultsList({
 
           const rawCategory = isPlace ? r.data.type ?? "ATTRACTION" : "EVENT";
 
-          const category = rawCategory as PoiCategory;
-          const icon = getCategoryIcon(category);
-          const color = getCategoryColor(category);
-          const bg = getCategoryBg(category);
+          const icon = getCategoryIcon(rawCategory as any);
+          const color = getCategoryColor(rawCategory as any);
+          const bg = getCategoryBg(rawCategory as any);
           const label = categoryLabel(rawCategory, lang);
 
           const meta = isPlace
@@ -51,10 +49,14 @@ export const ResultsList = memo(function ResultsList({
 
           let openText = t(lang, "hoursUnavailable");
           if (isPlace) {
-            openText = r.data.rawHours ? getPoiOpenText({ hours: r.data.rawHours }) : r.data.hours;
-            if (openText === "Open now") openText = t(lang, "openNow");
-            else if (openText === "Closed now") openText = t(lang, "closedNow");
-            else if (openText === "Hours unavailable") openText = t(lang, "hoursUnavailable");
+            try {
+              openText = getPoiOpenText(r.data as any);
+              if (openText === "Open now") openText = t(lang, "openNow");
+              else if (openText === "Closed now") openText = t(lang, "closedNow");
+              else if (openText === "Hours unavailable") openText = t(lang, "hoursUnavailable");
+            } catch {
+              openText = (r.data as any).hours ?? t(lang, "hoursUnavailable");
+            }
           }
 
           return (
@@ -78,7 +80,7 @@ export const ResultsList = memo(function ResultsList({
                     border: `1px solid ${color}`,
                   }}
                 >
-                  {isPlace ? label : categoryLabel(r.data.status ?? "EVENT", lang)}
+                  {isPlace ? label : categoryLabel((r.data as any).status ?? "EVENT", lang)}
                 </div>
               </div>
 
@@ -102,10 +104,10 @@ export const ResultsList = memo(function ResultsList({
                     ⏰ {openText}
                   </span>
                 ) : (
-                  <span>🗓️ {r.data.when ?? ""}</span>
+                  <span>🗓️ {(r.data as any).when ?? ""}</span>
                 )}
 
-                {isPlace && r.data.verified && <span>✅ {t(lang, "verified")}</span>}
+                {isPlace && (r.data as any).verified && <span>✅ {t(lang, "verified")}</span>}
               </div>
             </button>
           );
