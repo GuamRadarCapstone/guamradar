@@ -2,6 +2,15 @@ import { polygon as turfPolygon, featureCollection } from "@turf/helpers";
 import intersect from "@turf/intersect";
 import type { Village } from "../types/data";
 
+type LngLat = [number, number];
+type GeoJsonPolygon = { type: "Polygon"; coordinates?: LngLat[][] };
+type GeoJsonMultiPolygon = { type: "MultiPolygon"; coordinates?: LngLat[][][] };
+type GeoJsonFeature = {
+  properties?: { name?: string };
+  geometry?: GeoJsonPolygon | GeoJsonMultiPolygon;
+};
+type GeoJsonFeatureCollection = { features?: GeoJsonFeature[] };
+
 /** Correct OSM names to official guam.gov village names */
 const VILLAGE_NAME_FIXES: Record<string, string> = {
   "Agana Heights": "Agaña Heights",
@@ -25,11 +34,11 @@ export function normalizeVillageId(name: string) {
 }
 
 /** Keep GeoJSON [lng, lat] order */
-function toRingGeoJson(coords: any[]): [number, number][] {
-  return coords.map(([lng, lat]: [number, number]) => [lng, lat]);
+function toRingGeoJson(coords: LngLat[]): LngLat[] {
+  return coords.map(([lng, lat]) => [lng, lat]);
 }
 
-function ringBBox(ring: [number, number][]) {
+function ringBBox(ring: LngLat[]) {
   let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
   for (const [lng, lat] of ring) {
     if (lng < minLng) minLng = lng;
@@ -57,7 +66,7 @@ function bboxArea(bb: ReturnType<typeof ringBBox>) {
 const GUAM_MAIN_BB = { minLat: 13.2, maxLat: 13.75, minLng: 144.6, maxLng: 144.98 };
 
 /** Ensure a ring is closed (first point === last point) */
-function ensureClosed(ring: [number, number][]): [number, number][] {
+function ensureClosed(ring: LngLat[]): LngLat[] {
   if (ring.length < 2) return ring;
   const first = ring[0];
   const last = ring[ring.length - 1];
@@ -72,9 +81,9 @@ function ensureClosed(ring: [number, number][]): [number, number][] {
  * Returns the clipped ring, or the original ring if clipping fails.
  */
 function clipToCoastline(
-  villageRing: [number, number][],
+  villageRing: LngLat[],
   coastlinePoly: ReturnType<typeof turfPolygon>,
-): [number, number][] {
+): LngLat[] {
   try {
     const villagePoly = turfPolygon([ensureClosed(villageRing)]);
     const result = intersect(featureCollection([coastlinePoly, villagePoly]));
@@ -84,17 +93,17 @@ function clipToCoastline(
     const geom = result.geometry;
 
     if (geom.type === "Polygon") {
-      return geom.coordinates[0] as [number, number][];
+      return geom.coordinates[0] as LngLat[];
     }
 
     if (geom.type === "MultiPolygon") {
       // Pick the polygon with the most overlap with Guam's main island
-      let best = geom.coordinates[0][0] as [number, number][];
+      let best = geom.coordinates[0][0] as LngLat[];
       let bestOverlap = -1;
       let bestArea = -1;
 
       for (const poly of geom.coordinates) {
-        const ring = poly[0] as [number, number][];
+        const ring = poly[0] as LngLat[];
         const bb = ringBBox(ring);
         const overlap = bboxIntersectionArea(bb, GUAM_MAIN_BB);
         const area = bboxArea(bb);
@@ -113,7 +122,7 @@ function clipToCoastline(
   }
 }
 
-export function geoJsonToVillages(geo: any): Village[] {
+export function geoJsonToVillages(geo: GeoJsonFeatureCollection): Village[] {
   const features = geo?.features ?? [];
 
   // Extract the Guam coastline polygon for clipping
@@ -131,7 +140,7 @@ export function geoJsonToVillages(geo: any): Village[] {
   }
 
   return features
-    .map((f: any) => {
+    .map((f) => {
       const rawName = f?.properties?.name;
       const geom = f?.geometry;
       if (!rawName || !geom) return null;
@@ -141,7 +150,7 @@ export function geoJsonToVillages(geo: any): Village[] {
       const stripped = rawName.replace(/\bMunicipality\b/gi, "").trim();
       const cleanName = VILLAGE_NAME_FIXES[stripped] ?? stripped;
 
-      const candidateRings: [number, number][][] = [];
+      const candidateRings: LngLat[][] = [];
 
       if (geom.type === "Polygon") {
         const outer = geom.coordinates?.[0];

@@ -118,18 +118,19 @@ function emojiIcon(emoji: string, border: string, bg: string) {
   return url;
 }
 
-const _markerIconCache: Record<string, { url: string; scaledSize: any; anchor: any }> = {};
+const _markerIconCache: Record<string, google.maps.Icon> = {};
 
 function markerIcon(url: string, size: number) {
-  let icon = _markerIconCache[url];
+  const key = `${url}:${size}`;
+  let icon = _markerIconCache[key];
   if (!icon) {
     const half = size / 2;
-    icon = {
-      url,
-      scaledSize: { width: size, height: size, equals: () => false } as any,
-      anchor: { x: half, y: half, equals: () => false } as any,
-    };
-    _markerIconCache[url] = icon;
+    icon = { url };
+    if (typeof google !== "undefined" && google.maps?.Size && google.maps?.Point) {
+      icon.scaledSize = new google.maps.Size(size, size);
+      icon.anchor = new google.maps.Point(half, half);
+    }
+    _markerIconCache[key] = icon;
   }
   return icon;
 }
@@ -191,8 +192,11 @@ function VillageOverlay({
   const haloLayerRef = useRef<google.maps.Data | null>(null);
   const borderLayerRef = useRef<google.maps.Data | null>(null);
   const clickCbRef = useRef(onVillageClick);
-  clickCbRef.current = onVillageClick;
   const loadedVillagesRef = useRef<string>("");
+
+  useEffect(() => {
+    clickCbRef.current = onVillageClick;
+  }, [onVillageClick]);
 
   useEffect(() => {
     if (!map) return;
@@ -597,15 +601,18 @@ function MapControls({
   );
 }
 
-let _OverlayClass:
-  | (new (
-      pos: google.maps.LatLng,
-      map: google.maps.Map,
-    ) => google.maps.OverlayView & {
-      container: HTMLDivElement;
-      updatePosition(p: google.maps.LatLng): void;
-    })
-  | null = null;
+type PopupOverlayInstance = google.maps.OverlayView & {
+  container: HTMLDivElement;
+  updatePosition(p: google.maps.LatLng): void;
+};
+
+type PopupOverlayConstructor = new (
+  pos: google.maps.LatLng,
+  map: google.maps.Map,
+  container: HTMLDivElement,
+) => PopupOverlayInstance;
+
+let _OverlayClass: PopupOverlayConstructor | null = null;
 
 function getOverlayClass() {
   if (_OverlayClass) return _OverlayClass;
@@ -614,10 +621,10 @@ function getOverlayClass() {
     container: HTMLDivElement;
     private pos: google.maps.LatLng;
 
-    constructor(pos: google.maps.LatLng, map: google.maps.Map) {
+    constructor(pos: google.maps.LatLng, map: google.maps.Map, container: HTMLDivElement) {
       super();
       this.pos = pos;
-      this.container = document.createElement("div");
+      this.container = container;
       this.container.style.position = "absolute";
       this.container.style.pointerEvents = "auto";
       this.setMap(map);
@@ -645,14 +652,14 @@ function getOverlayClass() {
     }
   }
 
-  _OverlayClass = PopupOverlay as any;
+  _OverlayClass = PopupOverlay;
   return _OverlayClass!;
 }
 
 function MapPopup({ lang, info, onClose }: { lang: Language; info: NonNullable<PopupInfo>; onClose: () => void }) {
   const map = useMap();
-  const overlayRef = useRef<any>(null);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const overlayRef = useRef<PopupOverlayInstance | null>(null);
+  const container = useMemo(() => document.createElement("div"), []);
 
   const latLng = useMemo(() => {
     switch (info.kind) {
@@ -672,15 +679,13 @@ function MapPopup({ lang, info, onClose }: { lang: Language; info: NonNullable<P
   useEffect(() => {
     if (!map) return;
     const Cls = getOverlayClass();
-    const ov = new Cls(latLng, map);
+    const ov = new Cls(latLng, map, container);
     overlayRef.current = ov;
-    setContainer(ov.container);
     return () => {
       ov.setMap(null);
       overlayRef.current = null;
-      setContainer(null);
     };
-  }, [map, latLng]);
+  }, [container, map, latLng]);
 
   const content = useMemo(() => {
     switch (info.kind) {
@@ -1019,8 +1024,10 @@ export function HomePage() {
       setSavedPoiIds((data ?? []).map((row) => row.poi_id));
     }
 
-    loadSavedPois();
-    loadItineraryData();
+    queueMicrotask(() => {
+      loadSavedPois();
+      loadItineraryData();
+    });
 
     const {
       data: { subscription },
@@ -1033,7 +1040,9 @@ export function HomePage() {
   }, [loadItineraryData]);
 
   useEffect(() => {
-    loadSharedItinerary();
+    queueMicrotask(() => {
+      loadSharedItinerary();
+    });
   }, [loadSharedItinerary]);
 
   const selectedVillageName = useMemo(() => {
@@ -1320,9 +1329,7 @@ export function HomePage() {
   const [mapTheme, setMapTheme] = useState("default");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"map" | "explore" | "villages" | "profile">("map");
-  const prevTabRef = useRef<"explore" | "villages" | "profile">("explore");
-  if (activeTab !== "map") prevTabRef.current = activeTab;
-  const panelTab = activeTab !== "map" ? activeTab : prevTabRef.current;
+  const panelTab = activeTab === "map" ? "explore" : activeTab;
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   const chatContext = useMemo<Record<string, unknown>>(() => {
