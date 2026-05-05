@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.100.1",
     "@turf/helpers": "^7.3.4",
     "@turf/intersect": "^7.3.4",
+    "@vercel/analytics": "^2.0.1",
     "@vis.gl/react-google-maps": "^1.7.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
