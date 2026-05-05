@@ -23,10 +23,7 @@ public class RequestSizeFilter extends OncePerRequestFilter {
     HttpServletResponse response,
     FilterChain filterChain
   ) throws ServletException, IOException {
-    if (
-      request.getRequestURI().equals("/api/chat") &&
-      request.getContentLengthLong() > maxRequestBytes
-    ) {
+    if (isChatRequest(request) && request.getContentLengthLong() > maxRequestBytes) {
       response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
       response.setContentType("application/json");
       response.getWriter().write("""
@@ -36,5 +33,10 @@ public class RequestSizeFilter extends OncePerRequestFilter {
     }
 
     filterChain.doFilter(request, response);
+  }
+
+  private boolean isChatRequest(HttpServletRequest request) {
+    String path = request.getRequestURI();
+    return path.equals("/api/chat") || path.equals("/api/chat/stream");
   }
 }

@@ -18,6 +18,7 @@ import { useMusic } from "../../hooks/useMusic";
 import { ResultsList } from "../../components/ResultsList";
 import { DetailsPanel } from "../../components/DetailsPanel";
 import { VillageBrowser } from "../../components/VillageBrowser";
+import { ChatAssistant } from "../../components/ChatAssistant";
 import AuthCard from "../../components/AuthCard";
 import { SavedPoisCard } from "../../components/SavedPoisCard";
 import {
@@ -1324,6 +1325,98 @@ export function HomePage() {
   const panelTab = activeTab !== "map" ? activeTab : prevTabRef.current;
   const [isSignedIn, setIsSignedIn] = useState(false);
 
+  const chatContext = useMemo<Record<string, unknown>>(() => {
+    const activeItinerary = activeItineraryId
+      ? itineraries.find((itinerary) => itinerary.id === activeItineraryId)
+      : sharedItinerary;
+    const activeItems = activeItinerary
+      ? (activeItineraryId ? itineraryItems : sharedItems)
+          .filter((item) => item.itinerary_id === activeItinerary.id)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .slice(0, 8)
+          .map((item) => {
+            const place = displayPlaces.find((p) => p.id === item.poi_id);
+            return {
+              day: item.day_number,
+              place: place?.name ?? item.poi_id,
+              village: place?.village ?? place?.villageId,
+              notes: item.notes ?? "",
+            };
+          })
+      : [];
+
+    return {
+      activeTab,
+      language: lang,
+      selectedVillage: deferredVillageId
+        ? displayVillages.find((village) => village.id === deferredVillageId)?.name ?? deferredVillageId
+        : null,
+      selectedPlace: selectedPlace
+        ? {
+            name: selectedPlace.name,
+            category: selectedPlace.category,
+            village: selectedPlace.village ?? selectedPlace.villageId,
+            hours: selectedPlace.hours,
+            price: selectedPlace.price ?? null,
+            tags: selectedPlace.tags.slice(0, 8),
+            description: selectedPlace.description ?? null,
+          }
+        : null,
+      selectedEvent: selectedDetail?.kind === "EVENT"
+        ? {
+            title: selectedDetail.e.title,
+            villageId: selectedDetail.e.villageId,
+            when: selectedDetail.e.when ?? null,
+            status: selectedDetail.e.status,
+            description: selectedDetail.e.description ?? null,
+          }
+        : null,
+      filters: {
+        category,
+        search,
+        openNow,
+        nearMe,
+      },
+      userLocationAvailable: Boolean(userLoc),
+      resultCount: results.length,
+      savedPlaces: savedPoiIds
+        .map((id) => displayPlaces.find((place) => place.id === id))
+        .filter((place): place is Place => Boolean(place))
+        .slice(0, 10)
+        .map((place) => ({
+          name: place.name,
+          category: place.category,
+          village: place.village ?? place.villageId,
+        })),
+      activeItinerary: activeItinerary
+        ? {
+            title: activeItinerary.title,
+            items: activeItems,
+          }
+        : null,
+    };
+  }, [
+    activeItineraryId,
+    activeTab,
+    category,
+    deferredVillageId,
+    displayPlaces,
+    displayVillages,
+    itineraryItems,
+    itineraries,
+    lang,
+    nearMe,
+    openNow,
+    results.length,
+    savedPoiIds,
+    search,
+    selectedDetail,
+    selectedPlace,
+    sharedItems,
+    sharedItinerary,
+    userLoc,
+  ]);
+
   useEffect(() => {
     if (borderFocusMode) setPopupInfo(null);
   }, [borderFocusMode]);
@@ -1778,6 +1871,7 @@ export function HomePage() {
           ))}
         </div>
       </div>
+      <ChatAssistant context={chatContext} />
       </div>
     </div>
   );
